@@ -27,7 +27,6 @@ proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte]):(array
             index = cast[int](received)
             received += cast[uint32](socket.recv(addr tempBytes[0],5096))
             copyMem(addr(returnBytes[index]),addr(tempBytes[0]),received)
-    
     except CatchableError:
         var e = getCurrentException()
         var msg = getCurrentExceptionMsg()

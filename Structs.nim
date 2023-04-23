@@ -41,3 +41,42 @@ type
         Dialect1*: array[2,byte]
         Dialect2*: array[2,byte]
 
+    SessionSetupHeader* {.bycopy,packed.} = object
+        StructureSize*: uint16
+        Flags*:byte
+        SecurityMode*:byte
+        Capabilities*: array[4,byte]
+        Channel*: array[4,byte]
+        BlobOffset*: uint16
+        BlobLength*: uint16
+        PreviousSessionId*: array[8,byte]
+    
+    NTLMSSPNegotiate* {.bycopy,packed.} = object
+        InitialContextTokenID*:byte
+        InitialContextTokenLength*:byte
+        ThisMechID*:byte
+        ThisMechLength*:byte
+        OID*:array[6,byte]
+        InnerContextTokenID*:byte
+        InnerContextTokenLength*:byte
+        InnerContextTokenID2*:byte
+        InnerContextTokenLength2*:byte
+        MechTypesID*:byte
+        MechTypesLength*:byte
+        MechTypesID2*:byte
+        MechTypesLength2*:byte
+        MechTypesID3*:byte
+        MechTypesLength3*:byte
+        MechType*:array[10,byte]
+        MechTokenID*:byte
+        MechTokenLength*:byte
+        NTLMSSPID*:byte
+        NTLMSSPLength*:byte
+        Identifier*:array[8,byte]
+        MessageType*:array[4,byte]
+        NegotiateFlags*:array[4,byte]
+        CallingWorkstationDomain*:array[8,byte]
+        CallingWorkstationName*:array[8,byte]
+
+
+

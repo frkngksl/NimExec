@@ -19,6 +19,7 @@ when isMainModule:
         optionsStruct.Username = optionsStruct.Domain & "\\" & optionsStruct.Username
     var targetBytesInWCharForm:WideCStringObj = newWideCString(optionsStruct.Target) # .len property doesn't count its double null bytes, and it doesn't represent byte array length
     var tcpSocket:net.Socket = newSocket(buffered=false)
+    var smbNegotiateFlags:array[4,byte] = [byte 0x05, 0x80, 0x08, 0xa0]
     try:
         tcpSocket.connect(optionsStruct.Target,Port(445),60000)
     except CatchableError:
@@ -28,5 +29,10 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Connected to ", optionsStruct.Target, ":445"
-    if(NegotiateSMB2(tcpSocket,addr messageID,addr treeID, addr sessionID)):
-        messageID+=1
+    if(not NegotiateSMB2(tcpSocket,addr messageID,addr treeID, addr sessionID)):
+        echo "[!] Problem in NegotiateSMB2 request!"
+        quit(0)
+    if(not NTLMSSPNegotiateSMB2(tcpSocket,smbNegotiateFlags,addr messageID,addr treeID, addr sessionID)):
+        echo "[!] Problem in NTLMSSPNegotiateSMB2 request!"
+        quit(0)
+    
