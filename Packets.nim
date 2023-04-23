@@ -56,7 +56,7 @@ proc NegotiateSMB2*(socket: net.Socket,messageID:ptr uint64,treeID:ptr array[4,b
     var dataLength:int = sizeof(SMB2Header)+sizeof(SMB2NegotiateRequest)+sizeof(NetBiosHeader)
     var sendData:seq[byte]=newSeq[byte](dataLength)
     var returnValue:array[5096,byte]
-    var returnSize:int
+    var returnSize:uint32
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2Negotiate, sizeof(SMB2NegotiateRequest))
