@@ -45,6 +45,7 @@ proc ParseArgs*(argc:int, argv:seq[string], optionsStruct:ptr OPTIONS):bool =
     optionsStruct.Target = ""
     optionsStruct.Command = ""
     optionsStruct.IsVerbose = false
+    optionsStruct.OutputUsername = ""
     var i:int = 0
     while(i<argc):
         if(argv[i] == "-v" or argv[i] == "--verbose"):

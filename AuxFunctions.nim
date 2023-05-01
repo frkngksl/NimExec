@@ -1,5 +1,8 @@
 import system
 import net
+import ptr_math
+import std/strutils
+import std/md5
 
 proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte]):(array[5096,byte],uint32) =
     var returnBytes:array[5096,byte]
@@ -33,3 +36,72 @@ proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte]):(array
         echo "[!] Got exception ", repr(e), " with message ", msg
         quit(0)
     return (returnBytes,expectedSize)
+
+
+proc FindIndex*(mainArray:ptr byte,mainArrayLength:int,subArray:ptr byte,subArrayLength:int):int =
+    var returnValue:int = -1
+    for i in countup(0,mainArrayLength-1):
+        for j in countup(0,subArrayLength):
+            if(j == subArrayLength):
+                return i
+            if(i+j >= mainArrayLength or (mainArray+i+j)[] != (subArray+j)[]):
+                break
+
+    return returnValue
+
+proc GetByteRange*(mainArray:ptr byte,startOffset:int,endOffset:int):seq[byte] =
+    var returnValue:seq[byte]
+    for i in countup(startOffset,endOffset):
+        returnValue.add((mainArray+i)[])
+    return returnValue
+
+proc HexStringToByteArray*(hexString:string,hexLength:int):seq[byte] =
+    var returnValue:seq[byte] = @[]
+    for i in countup(0,hexLength-1,2):
+        try:
+            #echo hexString[i..i+1]
+            returnValue.add(fromHex[uint8](hexString[i..i+1]))
+        except ValueError:
+            return @[]
+    #fromHex[uint8]
+    return returnValue
+
+proc ArrayToMD5(data:ptr byte, dataSize: int):MD5Digest = 
+    var ctx: MD5Context
+    md5Init(ctx)
+    md5Update(ctx, cast[cstring](data), dataSize)
+    var digest: MD5Digest
+    md5Final(ctx, digest)
+    return digest
+
+proc hmac_md5*(key:ptr byte,keySize: int, data: ptr byte, dataSize: int):MD5Digest =
+    let block_size:int = 64
+    let opad:int = 0x5c
+    let ipad:int = 0x36  
+    let digest_size = 16
+    var keyA: seq[uint8] = @[]
+    var o_key_pad = newString(block_size + digest_size)
+    var i_key_pad = newString(block_size)
+    var dataStr: string = newString(dataSize)
+
+    for i in countup(0,dataSize-1):
+        dataStr[i]= char((data+i)[])
+
+    if(keySize > block_size):
+        for n in ArrayToMD5(key,keySize):
+            keyA.add(n.uint8)
+    else:
+        for i in countup(0,keySize-1):
+            keyA.add((key+i)[])
+    while keyA.len < block_size:
+        keyA.add(0x00'u8)
+
+    for i in countup(0,block_size-1):
+        o_key_pad[i] = char(keyA[i].ord xor opad)
+        i_key_pad[i] = char(keyA[i].ord xor ipad)
+    var i = 0
+    for x in toMD5(i_key_pad & dataStr):
+        o_key_pad[block_size + i] = char(x)
+        inc(i)
+    result = toMD5(o_key_pad)
+    return result

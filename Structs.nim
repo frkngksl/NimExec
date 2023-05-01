@@ -7,6 +7,7 @@ type
         Target*: string
         Command*: string
         Service*:string
+        OutputUsername*:string
 
     NetBiosHeader* {.bycopy,packed.} = object
         MessageType*: byte
@@ -78,5 +79,14 @@ type
         CallingWorkstationDomain*:array[8,byte]
         CallingWorkstationName*:array[8,byte]
 
+    NTLMSSPAuth* {.bycopy,packed.} = object
+        NTLMSSPAuthASNID*:array[2,byte]
+        NTLMSSPAuthASNLength*:array[2,byte]
+        NTLMSSPAuthASNID2*:array[2,byte]
+        NTLMSSPAuthASNLength2*:array[2,byte]
+        NTLMSSPAuthASNID3*:array[2,byte]
+        NTLMSSPAuthASNLength3*:array[2,byte]
+        NTLMSSPAuthNTLMSSPID*:array[2,byte]
+        NTLMSSPAuthNTLMSSPLength*:array[2,byte]
 
 
