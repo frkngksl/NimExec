@@ -16,7 +16,7 @@ proc PrintBanner*():void =
 |  |   |  |                                        .'   /    `.   `.                               `   
 '--'   '--'                                       '----'       '----'                                  
 
-                @R0h1rr1m          
+                                            @R0h1rr1m          
 
 """
     echo banner

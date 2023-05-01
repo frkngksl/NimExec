@@ -88,5 +88,29 @@ type
         NTLMSSPAuthASNLength3*:array[2,byte]
         NTLMSSPAuthNTLMSSPID*:array[2,byte]
         NTLMSSPAuthNTLMSSPLength*:array[2,byte]
+    
+    TreeConnectRequest* {.bycopy,packed.} = object
+        StructureSize*:array[2,byte]
+        Reserved*:array[2,byte]
+        PathOffset*:array[2,byte]
+        PathLength*:array[2,byte]
+
+    CreateRequestFile* {.bycopy,packed.} = object
+        StructureSize*:array[2,byte]
+        Flags*:byte
+        RequestedOplockLevel*:byte
+        Impersonation*:array[4,byte]
+        SMBCreateFlags*:array[8,byte]
+        Reserved*:array[8,byte]
+        DesiredAccess*:array[4,byte]
+        FileAttributes*:array[4,byte]
+        ShareAccess*:array[4,byte]
+        CreateDisposition*:array[4,byte]
+        CreateOptions*:array[4,byte]
+        NameOffset*:array[2,byte]
+        NameLength*:array[2,byte]
+        CreateContextsOffset*:array[4,byte]
+        CreateContextsLength*:array[4,byte]
+
 
 
