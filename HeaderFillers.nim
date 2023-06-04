@@ -136,3 +136,69 @@ proc CreateRequestFileFiller*(smbNamedPipeLength:int):CreateRequestFile =
     returnStruct.CreateContextsOffset = [byte  0x00, 0x00, 0x00, 0x00]
     returnStruct.CreateContextsLength = [byte 0x00, 0x00, 0x00, 0x00]
     return returnStruct
+
+proc RPCBindFiller*(callID:int,contextID:array[2,byte],interfaceUUID:array[16,byte],interfaceUUIDVersion:array[2,byte]):RPCBind = 
+    var returnStruct:RPCBind
+    returnStruct.Version = 0x05
+    returnStruct.VersionMinor = 0x00
+    returnStruct.PacketType = 0x0b
+    returnStruct.PacketFlags = 0x03
+    returnStruct.DataRepresentation = [byte 0x10, 0x00, 0x00, 0x00]
+    returnStruct.FragLength = [byte 0x74, 0x00]
+    returnStruct.AuthLength = [byte 0x00, 0x00]
+    #returnStruct.CallID = callID
+    returnStruct.CallID = [(cast[ptr byte](unsafeAddr callID))[],(cast[ptr byte](unsafeAddr(callID)) + 1)[],(cast[ptr byte](unsafeAddr(callID)) + 2)[],(cast[ptr byte](unsafeAddr(callID)) + 3)[] ]
+    returnStruct.MaxXmitFrag = [byte 0xb8, 0x10]
+    returnStruct.MaxRecvFrag = [byte 0xb8, 0x10]
+    returnStruct.AssocGroup = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.NumCtxItems = 0x02
+    returnStruct.Unknown = [byte 0x00, 0x00, 0x00]
+    returnStruct.ContextID = contextID
+    returnStruct.NumTransItems = 0x01
+    returnStruct.Unknown2 = 0x00
+    returnStruct.Interface = interfaceUUID
+    returnStruct.InterfaceVer = interfaceUUIDVersion
+    returnStruct.InterfaceVerMinor = [byte 0x00, 0x00]
+    returnStruct.TransferSyntax = [byte 0x04, 0x5d, 0x88, 0x8a, 0xeb, 0x1c, 0xc9, 0x11, 0x9f, 0xe8, 0x08, 0x00, 0x2b, 0x10, 0x48, 0x60]
+    returnStruct.TransferSyntaxVer = [byte  0x02, 0x00, 0x00, 0x00]
+    returnStruct.ContextID2 = [byte 0x01, 0x00]
+    returnStruct.NumTransItems2 = 0x01
+    returnStruct.Unknown3 = 0x00
+    returnStruct.Interface2 = [byte 0x81, 0xbb, 0x7a, 0x36, 0x44, 0x98, 0xf1, 0x35, 0xad, 0x32, 0x98, 0xf0, 0x38, 0x00, 0x10, 0x03]
+    returnStruct.InterfaceVer2 = [byte 0x02, 0x00]
+    returnStruct.InterfaceVerMinor2 = [byte 0x00, 0x00]
+    returnStruct.TransferSyntax2 = [byte 0x2c, 0x1c, 0xb7, 0x6c, 0x12, 0x98, 0x40, 0x45, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    returnStruct.TransferSyntaxVer2 = [byte 0x01, 0x00 ,0x00, 0x00]
+    return returnStruct
+
+proc SMB2WriteRequest*(packetWriteLength:int,fileID:array[16,byte]):SMB2WriteHeader = 
+    var returnStruct:SMB2WriteHeader
+    returnStruct.StructureSize = [byte 0x31, 0x00]
+    returnStruct.DataOffset = [byte 0x70, 0x00]
+    returnStruct.Length = [(cast[ptr byte](unsafeAddr packetWriteLength))[],(cast[ptr byte](unsafeAddr(packetWriteLength)) + 1)[],(cast[ptr byte](unsafeAddr(packetWriteLength)) + 2)[],(cast[ptr byte](unsafeAddr(packetWriteLength)) + 3)[] ]
+    returnStruct.Offset = [byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    returnStruct.FileID = fileID
+    returnStruct.Channel = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.RemainingBytes = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.WriteChannelInfoOffset = [byte 0x00, 0x00]
+    returnStruct.WriteChannelInfoLength = [byte 0x00, 0x00]
+    returnStruct.Flags = [byte 0x00, 0x00, 0x00, 0x00]
+
+    return returnStruct
+
+proc SMB2IoctlRequest*(packetIoctlLength:int,fileID:ptr array[16,byte]):SMB2IoctlHeader = 
+    var returnStruct:SMB2IoctlHeader
+    returnStruct.StructureSize = [byte 0x39, 0x00]
+    returnStruct.Reserved = [byte 0x00, 0x00]
+    returnStruct.Function = [byte 0x17, 0xc0, 0x11, 0x00]
+    returnStruct.FileID = fileID[]
+    returnStruct.BlobOffset = [byte 0x78, 0x00, 0x00, 0x00]
+    returnStruct.BlobLength = packetIoctlLength
+    returnStruct.MaxInsize = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.BlobOffset2 = [byte 0x78, 0x00, 0x00, 0x00]
+    returnStruct.BlobLength2 = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.MaxOutSize = [byte 0x00, 0x04, 0x00, 0x00]
+    returnStruct.Flags = [byte 0x01, 0x00, 0x00, 0x00]
+    returnStruct.Reserved2 = [byte 0x00, 0x00, 0x00, 0x00]
+
+    return returnStruct

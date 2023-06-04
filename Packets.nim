@@ -195,7 +195,7 @@ proc TreeConnectRequest*(socket: net.Socket,options:ptr OPTIONS, messageID:ptr u
         return false
 
 
-proc CreateRequest*(socket: net.Socket,options:ptr OPTIONS, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte]):bool =
+proc CreateRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte]):bool =
     treeID[] = [byte 0x01, 0x00, 0x00 , 0x00]
     var smb2NamedPipeBytes:seq[byte] = @[byte 0x73, 0x00, 0x76, 0x00, 0x63, 0x00, 0x63, 0x00, 0x74, 0x00, 0x6c, 0x00]
     var smb2Header:SMB2Header = SMB2HeaderFiller(5,1,1,messageID[],treeID[],sessionID[])
@@ -215,7 +215,28 @@ proc CreateRequest*(socket: net.Socket,options:ptr OPTIONS, messageID:ptr uint64
     (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
     if((cast[ptr uint32](addr returnValue[12]))[] == 0):
         messageID[] = messageID[]+1
+        var tempArray:seq[byte] = GetByteRange(addr returnValue[0],132,147)
+        for i in countup(0,15):
+            (fileID[])[i] = tempArray[i]
         return true
     else:
         return false
 
+proc RPCBindRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: array[16,byte], callID:ptr int):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(9,1,1,messageID[],treeID[],sessionID[])
+    var smbNamedPipeUUID:array[16,byte] = [byte 0x81, 0xbb, 0x7a, 0x36, 0x44, 0x98, 0xf1, 0x35, 0xad, 0x32, 0x98, 0xf0, 0x38, 0x00, 0x10, 0x03]
+    var smbNamedPipeUUIDVersion:array[2,byte] = [byte 0x02, 0x00]
+    var contextID:array[2,byte] = [byte 0x00, 0x00]
+    var rpcBindHeader:RPCBind = RPCBindFiller(callID[],contextID,smbNamedPipeUUID,smbNamedPipeUUIDVersion)
+    var smb2WriteHeader:SMB2WriteHeader = SMB2WriteRequest(sizeof(RPCBind), fileID)
+    var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + sizeof(RPCBind) + sizeof(SMB2WriteHeader))
+    var dataLength:int = sizeof(SMB2Header) +  sizeof(RPCBind) + sizeof(SMB2WriteHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte]= newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2WriteHeader, sizeof(SMB2WriteHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader) + sizeof(SMB2WriteHeader)],addr rpcBindHeader, sizeof(RPCBind))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    return true

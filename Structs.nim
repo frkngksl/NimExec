@@ -112,5 +112,63 @@ type
         CreateContextsOffset*:array[4,byte]
         CreateContextsLength*:array[4,byte]
 
+    RPCBind* {.bycopy,packed.} = object
+        Version*:byte
+        VersionMinor*:byte
+        PacketType*:byte
+        PacketFlags*:byte
+        DataRepresentation*:array[4,byte]
+        FragLength*:array[2,byte]
+        AuthLength*:array[2,byte]
+        CallID*:array[4,byte]
+        MaxXmitFrag*:array[2,byte]
+        MaxRecvFrag*:array[2,byte]
+        AssocGroup*:array[4,byte]
+        NumCtxItems*:byte
+        Unknown*:array[3,byte]
+        ContextID*:array[2,byte]
+        NumTransItems*:byte
+        Unknown2*:byte
+        Interface*:array[16,byte]
+        InterfaceVer*:array[2,byte]
+        InterfaceVerMinor*:array[2,byte]
+        TransferSyntax*:array[16,byte]
+        TransferSyntaxVer*:array[4,byte]
+        ContextID2*:array[2,byte]
+        NumTransItems2*:byte
+        Unknown3*:byte
+        Interface2*:array[16,byte]
+        InterfaceVer2*:array[2,byte]
+        InterfaceVerMinor2*:array[2,byte]
+        TransferSyntax2*:array[16,byte]
+        TransferSyntaxVer2*:array[4,byte]
+
+    SMB2WriteHeader* {.bycopy,packed.} = object
+        StructureSize*: array[2,byte]
+        DataOffset*: array[2,byte]
+        Length*:array[4,byte]
+        Offset*: array[8,byte]
+        FileID*: array[16,byte]
+        Channel*: array[4,byte]
+        RemainingBytes*: array[4,byte]
+        WriteChannelInfoOffset*: array[2,byte]
+        WriteChannelInfoLength*: array[2,byte]
+        Flags*: array[4,byte]
+
+    
+    SMB2IoctlHeader* {.bycopy,packed.} = object
+        StructureSize*: array[2,byte]
+        Reserved*: array[2,byte]
+        Function*: array[4,byte]
+        FileID*: array[16,byte]
+        BlobOffset*: array[4, byte]
+        BlobLength*:int
+        MaxInsize*: array[4, byte]
+        BlobOffset2*: array[4, byte]
+        BlobLength2*: array[4, byte]
+        MaxOutSize*: array[4, byte]
+        Flags*: array[4, byte]
+        Reserved2*: array[4, byte]
+        
 
 

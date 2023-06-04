@@ -15,6 +15,8 @@ when isMainModule:
     var messageID:uint64 = 0
     var treeID:array[4,byte]
     var sessionID:array[8,byte]
+    var fileID:array[16,byte]
+    var callID:int = 0
     if(optionsStruct.Domain != ""):
         optionsStruct.OutputUsername = optionsStruct.Domain & "\\" & optionsStruct.Username
     else:
@@ -48,11 +50,17 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Connected to IPC Share of target!"
-    if(not CreateRequest(tcpSocket,addr optionsStruct, addr messageID, addr treeID, addr sessionID)):
-        echo "[!] Problem in Tree Connect Request!"
+    if(not CreateRequest(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID)):
+        echo "[!] Problem in CreateFile Request!"
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Opened a handle for svcctl pipe!"
+    if(not RPCBindRequest(tcpSocket, addr messageID, addr treeID, addr sessionID, fileID, addr callID)):
+        echo "[!] Problem in RPC Bind Request!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Binded to the RPC Interface!"
+    
     
 
     
