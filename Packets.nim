@@ -5,6 +5,7 @@ import sequtils
 import std/endians
 import std/strutils
 import std/sysrand
+import std/os
 import Structs
 import AuxFunctions
 import HeaderFillers
@@ -222,7 +223,7 @@ proc CreateRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[
     else:
         return false
 
-proc RPCBindRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: array[16,byte], callID:ptr int):bool =
+proc RPCBindRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int):bool =
     var smb2Header:SMB2Header = SMB2HeaderFiller(9,1,1,messageID[],treeID[],sessionID[])
     var smbNamedPipeUUID:array[16,byte] = [byte 0x81, 0xbb, 0x7a, 0x36, 0x44, 0x98, 0xf1, 0x35, 0xad, 0x32, 0x98, 0xf0, 0x38, 0x00, 0x10, 0x03]
     var smbNamedPipeUUIDVersion:array[2,byte] = [byte 0x02, 0x00]
@@ -239,4 +240,68 @@ proc RPCBindRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2WriteHeader, sizeof(SMB2WriteHeader))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader) + sizeof(SMB2WriteHeader)],addr rpcBindHeader, sizeof(RPCBind))
     (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[12]))[] == 0):
+        messageID[] = messageID[]+1
+        callID[] = callID[]+1
+        return true
+    else:
+        return false
+
+
+
+proc ReadRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte]):bool =
+    sleep(2000);
+    var smb2Header:SMB2Header = SMB2HeaderFiller(8,1,1,messageID[],treeID[],sessionID[])
+    var smb2ReadHeader:SMB2ReadHeader = SMB2ReadRequest(fileID[])
+    var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + sizeof(SMB2ReadHeader))
+    var dataLength:int = sizeof(SMB2Header) +  sizeof(SMB2ReadHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2ReadHeader, sizeof(SMB2ReadHeader))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    
+    while((returnValue[12] == 0x03) and (returnValue[13] == 0x01) and (returnValue[14] == 0x00) and (returnValue[15] == 0x00)):
+        (returnValue,returnSize) = SendAndReceiveFromSocket(socket,nil,false)
+    if((cast[ptr uint32](addr returnValue[12]))[] == 0):
+        messageID[] = messageID[]+1
+        return true
+    else:
+        return false
+
+proc OpenSCManagerWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte], targetBytesInWCharForm: WideCStringObj):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+    var openSCManagerWData:seq[byte] = OpenSCManagerWFiller(targetBytesInWCharForm)
+    var rpcHeader:RPCHeader = RPCHeaderFiller(openSCManagerWData.len,callID,[byte 0x0f, 0x00])
+    var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,openSCManagerWData.len+sizeof(RPCHeader))
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + openSCManagerWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+    var dataLength:int = sizeof(SMB2Header) + openSCManagerWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr openSCManagerWData[0], openSCManagerWData.len)
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[returnSize-4]))[] == 0):
+        messageID[] = messageID[]+1
+        callID[] = callID[]+1
+        var isZero:bool = true
+        var tempArr:seq[byte] = GetByteRange(addr returnValue[0],140,159)
+        # Check all zero
+        for i in countup(0,19):
+            if(tempArr[i] != 0x00):
+                isZero = false
+                break
+        if(isZero):
+            return false
+        copyMem(scManagerHandle,addr tempArr[0],20)
+        return true
+    else:
+        return false
     return true
+   

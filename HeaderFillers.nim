@@ -1,5 +1,6 @@
 import ptr_math
 import Structs
+import AuxFunctions
 
 proc NetBiosFiller*(packetLength:int): NetBiosHeader = 
     var tempPointer: ptr byte = cast[ptr byte](unsafeAddr packetLength)
@@ -171,13 +172,13 @@ proc RPCBindFiller*(callID:int,contextID:array[2,byte],interfaceUUID:array[16,by
     returnStruct.TransferSyntaxVer2 = [byte 0x01, 0x00 ,0x00, 0x00]
     return returnStruct
 
-proc SMB2WriteRequest*(packetWriteLength:int,fileID:array[16,byte]):SMB2WriteHeader = 
+proc SMB2WriteRequest*(packetWriteLength:int,fileID:ptr array[16,byte]):SMB2WriteHeader = 
     var returnStruct:SMB2WriteHeader
     returnStruct.StructureSize = [byte 0x31, 0x00]
     returnStruct.DataOffset = [byte 0x70, 0x00]
     returnStruct.Length = [(cast[ptr byte](unsafeAddr packetWriteLength))[],(cast[ptr byte](unsafeAddr(packetWriteLength)) + 1)[],(cast[ptr byte](unsafeAddr(packetWriteLength)) + 2)[],(cast[ptr byte](unsafeAddr(packetWriteLength)) + 3)[] ]
     returnStruct.Offset = [byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-    returnStruct.FileID = fileID
+    returnStruct.FileID = fileID[]
     returnStruct.Channel = [byte 0x00, 0x00, 0x00, 0x00]
     returnStruct.RemainingBytes = [byte 0x00, 0x00, 0x00, 0x00]
     returnStruct.WriteChannelInfoOffset = [byte 0x00, 0x00]
@@ -186,14 +187,14 @@ proc SMB2WriteRequest*(packetWriteLength:int,fileID:array[16,byte]):SMB2WriteHea
 
     return returnStruct
 
-proc SMB2IoctlRequest*(packetIoctlLength:int,fileID:ptr array[16,byte]):SMB2IoctlHeader = 
+proc SMB2IoctlRequest*(fileID:ptr array[16,byte],packetIoctlLength:int):SMB2IoctlHeader = 
     var returnStruct:SMB2IoctlHeader
     returnStruct.StructureSize = [byte 0x39, 0x00]
     returnStruct.Reserved = [byte 0x00, 0x00]
     returnStruct.Function = [byte 0x17, 0xc0, 0x11, 0x00]
     returnStruct.FileID = fileID[]
     returnStruct.BlobOffset = [byte 0x78, 0x00, 0x00, 0x00]
-    returnStruct.BlobLength = packetIoctlLength
+    returnStruct.BlobLength = [(cast[ptr byte](unsafeAddr packetIoctlLength))[],(cast[ptr byte](unsafeAddr(packetIoctlLength)) + 1)[],(cast[ptr byte](unsafeAddr(packetIoctlLength)) + 2)[],(cast[ptr byte](unsafeAddr(packetIoctlLength)) + 3)[] ]
     returnStruct.MaxInsize = [byte 0x00, 0x00, 0x00, 0x00]
     returnStruct.BlobOffset2 = [byte 0x78, 0x00, 0x00, 0x00]
     returnStruct.BlobLength2 = [byte 0x00, 0x00, 0x00, 0x00]
@@ -202,3 +203,47 @@ proc SMB2IoctlRequest*(packetIoctlLength:int,fileID:ptr array[16,byte]):SMB2Ioct
     returnStruct.Reserved2 = [byte 0x00, 0x00, 0x00, 0x00]
 
     return returnStruct
+
+proc SMB2ReadRequest*(fileID: array[16,byte]):SMB2ReadHeader = 
+    var returnStruct:SMB2ReadHeader
+    returnStruct.StructureSize = [byte 0x31, 0x00]
+    returnStruct.Padding = 0x50
+    returnStruct.Flags = 0x00
+    returnStruct.Length = [byte 0xb8, 0x0c, 0x00, 0x00 ]
+    returnStruct.Offset = [byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    returnStruct.FileID = fileID
+    returnStruct.MinimumCount = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.Channel = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.RemainingBytes = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.ReadChannelInfoLength = [byte 0x00, 0x00]
+    returnStruct.ReadChannelInfoOffset = [byte 0x00, 0x00]
+    returnStruct.Buffer = 0x30
+    return returnStruct
+
+proc RPCHeaderFiller*(packetLength:int, callID: ptr int, opNum: array[2,byte]):RPCHeader = 
+    var returnStruct:RPCHeader
+    var writeLength:uint16 = cast[uint16](packetLength + 24)
+    var callIdTemp:uint32 = cast[uint32](callID[])
+    returnStruct.Version = 0x05
+    returnStruct.VersionMinor = 0x00
+    returnStruct.PacketType = 0x00
+    returnStruct.PacketFlags = 0x03
+    returnStruct.DataRepresentation = [byte 0x10, 0x00, 0x00, 0x00]
+    returnStruct.FragLength = [(cast[ptr byte](addr writeLength))[],(cast[ptr byte](addr(writeLength)) + 1)[]]
+    returnStruct.AuthLength = [byte 0x00, 0x00]
+    returnStruct.CallID = [(cast[ptr byte](addr callIdTemp))[],(cast[ptr byte](addr(callIdTemp)) + 1)[],(cast[ptr byte](addr(callIdTemp)) + 2)[],(cast[ptr byte](addr(callIdTemp)) + 3)[] ]
+    returnStruct.AllocHint = [byte 0x00, 0x00, 0x00, 0x00]
+    returnStruct.ContextID = [byte 0x00, 0x00]
+    returnStruct.OpNum = opNum
+    return returnStruct
+
+proc OpenSCManagerWFiller*(targetBytesInWCharForm:WideCStringObj):seq[byte] = 
+    var remainingData:OpenSCManagerWData
+    var marshalledTarget:seq[byte] = MarshallStringForRPC(targetBytesInWCharForm,true)
+    var returnData:seq[byte] = newSeq[byte](marshalledTarget.len + sizeof(OpenSCManagerWData))
+    remainingData.Database = [byte  0x00, 0x00, 0x00, 0x00]
+    remainingData.AccessMask = [byte 0x3F, 0x00, 0x0F, 0x00]
+    copyMem(addr returnData[0],addr marshalledTarget[0],marshalledTarget.len)
+    copyMem(addr returnData[marshalledTarget.len],addr remainingData, sizeof(remainingData))
+    return returnData
+

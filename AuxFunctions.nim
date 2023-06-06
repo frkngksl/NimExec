@@ -4,7 +4,7 @@ import ptr_math
 import std/strutils
 import std/md5
 
-proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte]):(array[5096,byte],uint32) =
+proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte],sendFlag:bool = true):(array[5096,byte],uint32) =
     var returnBytes:array[5096,byte]
     var tempBytes:array[5096,byte]
     var received:uint32 = 0
@@ -13,10 +13,11 @@ proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte]):(array
     var sentSize:int = 0
 
     try:
-        sentSize = socket.send(addr ((sentBytes[])[0]),(sentBytes[]).len)
-        if(sentSize != sentBytes[].len):
-            echo "[!] Error on socket write!"
-            quit(0)
+        if(sendFlag):
+            sentSize = socket.send(addr ((sentBytes[])[0]),(sentBytes[]).len)
+            if(sentSize != sentBytes[].len):
+                echo "[!] Error on socket write!"
+                quit(0)
         received += cast[uint32](socket.recv(addr returnBytes[0],5096))
         if(received < 0):
             echo "[!] Error on socket read!"
@@ -105,3 +106,22 @@ proc hmac_md5*(key:ptr byte,keySize: int, data: ptr byte, dataSize: int):MD5Dige
         inc(i)
     result = toMD5(o_key_pad)
     return result
+
+proc MarshallStringForRPC*(targetString:WideCStringObj,isUnique:bool = false): seq[byte] = 
+    # Referent - Max count - offset - actual count - string 
+    var returnValue: seq[byte] = @[]
+    var targetStringBytes:seq[byte] = newSeq[byte](targetString.len*2+2)
+    var offset:array[4, byte] = [byte 0x00, 0x00, 0x00, 0x00]
+    var unicodeLength:uint32 = cast[uint32](targetString.len+1)
+    var unicodeLengthArray:array[4, byte] = [(cast[ptr byte](addr unicodeLength))[],(cast[ptr byte](addr(unicodeLength)) + 1)[],(cast[ptr byte](addr(unicodeLength)) + 2)[],(cast[ptr byte](addr(unicodeLength)) + 3)[] ]
+    copyMem(addr targetStringBytes[0],addr targetString[0],targetString.len*2)
+    targetStringBytes[targetString.len*2] = 0x00
+    targetStringBytes[targetString.len*2+1] = 0x00
+    if(isUnique):
+        var referentID:array[4, byte] = [byte 0x00, 0x00, 0x00, 0x01]
+        returnValue.add(referentID)
+    returnValue.add(unicodeLengthArray)
+    returnValue.add(offset)
+    returnValue.add(unicodeLengthArray)
+    returnValue.add(targetStringBytes)
+    return returnValue

@@ -16,6 +16,7 @@ when isMainModule:
     var treeID:array[4,byte]
     var sessionID:array[8,byte]
     var fileID:array[16,byte]
+    var scManagerHandle:array[20,byte]
     var callID:int = 0
     if(optionsStruct.Domain != ""):
         optionsStruct.OutputUsername = optionsStruct.Domain & "\\" & optionsStruct.Username
@@ -55,13 +56,21 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Opened a handle for svcctl pipe!"
-    if(not RPCBindRequest(tcpSocket, addr messageID, addr treeID, addr sessionID, fileID, addr callID)):
+    if(not RPCBindRequest(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID)):
         echo "[!] Problem in RPC Bind Request!"
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Binded to the RPC Interface!"
-    
-    
+    if(not ReadRequest(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID)):
+        echo "[!] Problem in RPC Bind Acknowledge!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] RPC Binding is acknowledged!"
+    if(not OpenSCManagerWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle, targetBytesInWCharForm)):
+        echo "[!] Problem in OpenSCManagerW RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] SCManager handle is obtained!"
 
     
     

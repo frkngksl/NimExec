@@ -162,13 +162,44 @@ type
         Function*: array[4,byte]
         FileID*: array[16,byte]
         BlobOffset*: array[4, byte]
-        BlobLength*:int
+        BlobLength*: array[4, byte]
         MaxInsize*: array[4, byte]
         BlobOffset2*: array[4, byte]
         BlobLength2*: array[4, byte]
         MaxOutSize*: array[4, byte]
         Flags*: array[4, byte]
         Reserved2*: array[4, byte]
+    
+    SMB2ReadHeader* {.bycopy,packed.} = object
+        StructureSize*: array[2,byte]
+        Padding*: byte
+        Flags*: byte
+        Length*: array[4,byte]
+        Offset*: array[8, byte]
+        FileID*: array[16, byte]
+        MinimumCount*: array[4, byte]
+        Channel*: array[4, byte]
+        RemainingBytes*: array[4, byte]
+        ReadChannelInfoOffset*: array[2, byte]
+        ReadChannelInfoLength*: array[2, byte]
+        Buffer*: byte
         
+    RPCHeader* {.bycopy,packed.} = object
+        Version*: byte
+        VersionMinor*: byte
+        PacketType*: byte
+        PacketFlags*: byte
+        DataRepresentation*: array[4,byte]
+        FragLength*: array[2,byte]
+        AuthLength*: array[2,byte]
+        CallID*: array[4,byte]
+        AllocHint*: array[4, byte]
+        ContextID*: array[2,byte]
+        OpNum*: array[2,byte]
+    
+    OpenSCManagerWData* {.bycopy,packed.} = object
+        Database*: array[4, byte]
+        AccessMask*: array[4, byte]
+
 
 
