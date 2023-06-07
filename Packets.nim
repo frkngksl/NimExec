@@ -301,7 +301,88 @@ proc OpenSCManagerWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr ar
             return false
         copyMem(scManagerHandle,addr tempArr[0],20)
         return true
+    elif(returnValue[128] == 0x05 and returnValue[129] == 0x00 and returnValue[130] == 0x00 and returnValue[131] == 0x00):
+        echo "[!] Given credential is not a local administrator on target!"
+        return false
     else:
         return false
     return true
+
+proc ReadFragment(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], length: array[4,byte]):(array[5096,byte],uint32) =
+    sleep(2000);
+    var smb2Header:SMB2Header = SMB2HeaderFiller(8,1,1,messageID[],treeID[],sessionID[])
+    var smb2ReadHeader:SMB2ReadHeader = SMB2ReadRequest(fileID[],length)
+    var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + sizeof(SMB2ReadHeader))
+    var dataLength:int = sizeof(SMB2Header) +  sizeof(SMB2ReadHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2ReadHeader, sizeof(SMB2ReadHeader))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    messageID[] = messageID[]+1
+    return (returnValue,returnSize)
    
+proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte]):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+    var enumServicesStatusWData:EnumServicesStatusWData = EnumServicesStatusWFiller(scManagerHandle,0)
+    var rpcHeader:RPCHeader = RPCHeaderFiller(sizeof(EnumServicesStatusWData),callID,[byte 0x0e, 0x00])
+    var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,sizeof(EnumServicesStatusWData)+sizeof(RPCHeader))
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(EnumServicesStatusWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+    var dataLength:int = sizeof(SMB2Header) + sizeof(EnumServicesStatusWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr enumServicesStatusWData, sizeof(EnumServicesStatusWData))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[144]))[] != 0):
+        var servicesBufferSize:uint32 = (cast[ptr uint32](addr returnValue[144]))[]
+        messageID[] = messageID[]+1
+        callID[] = callID[]+1
+        smb2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+        enumServicesStatusWData = EnumServicesStatusWFiller(scManagerHandle,servicesBufferSize)
+        rpcHeader = RPCHeaderFiller(sizeof(EnumServicesStatusWData),callID,[byte 0x0e, 0x00])
+        smb2IoctlHeader = SMB2IoctlRequest(fileID,sizeof(EnumServicesStatusWData)+sizeof(RPCHeader))
+        netbiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(EnumServicesStatusWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+        zeroMem(addr sendData[0],dataLength)
+        zeroMem(addr returnValue[0], 5096)
+        returnSize = 0
+        copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+        copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr enumServicesStatusWData, sizeof(EnumServicesStatusWData))
+        (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+        if (returnValue[12] == 0x05 and returnValue[13] == 0x00 and returnValue[14] == 0x00 and returnValue[15] == 0x80): # STATUS_BUFFER_OVERFLOW
+            # Our buffer
+            messageID[] = messageID[]+1
+            var fragmentedEnumList: seq[byte]
+            var firstTime:bool = true
+            var length:array[4,byte] = [byte 0xb8, 0x0c, 0x00, 0x00 ]
+            var tempRPCData:seq[byte] = GetByteRange(addr returnValue[0],116,cast[int](returnSize-1))
+            if(tempRPCData[2] == 0x02):
+                fragmentedEnumList = GetByteRange(addr tempRPCData[0],24,tempRPCData.len-1)
+            else:
+                return false
+            while(servicesBufferSize > cast[uint32](fragmentedEnumList.len)):
+                (returnValue, returnSize) = ReadFragment(socket,messageID,treeID,sessionID,fileID,length)
+                if(firstTime):
+                    tempRPCData = GetByteRange(addr returnValue[0],84,cast[int](returnSize-1))
+                else:
+                    tempRPCData = GetByteRange(addr returnValue[0],108,cast[int](returnSize-1))
+                firstTime = false
+                length = [byte 0xb8, 0x10, 0x00, 0x00]
+                fragmentedEnumList.add(tempRPCData)
+            var returnedServiceNum:int = (cast[ptr int](addr fragmentedEnumList[fragmentedEnumList.len-12]))[];
+            echo "[+] Number of obtained services: ", returnedServiceNum
+        else:
+            # If you encounter such a case, please send a wireshark capture.
+            return false
+
+    else:
+        return false

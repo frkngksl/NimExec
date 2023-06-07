@@ -200,6 +200,15 @@ type
     OpenSCManagerWData* {.bycopy,packed.} = object
         Database*: array[4, byte]
         AccessMask*: array[4, byte]
+    
+    EnumServicesStatusWData* {.bycopy,packed.} = object
+        ContextHandle*: array[20,byte]
+        ServiceType*: array[4,byte]
+        ServiceState*: array[4,byte]
+        BufferSize*: array[4,byte]
+        ResumeIndex*: array[4,byte]
+
+
 
 
 

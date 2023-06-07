@@ -71,6 +71,11 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] SCManager handle is obtained!"
+    if(not EnumServicesStatusWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle)):
+        echo "[!] Problem in OpenSCManagerW RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] SCManager handle is obtained!"
 
     
     

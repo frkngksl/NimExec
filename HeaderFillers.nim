@@ -204,12 +204,12 @@ proc SMB2IoctlRequest*(fileID:ptr array[16,byte],packetIoctlLength:int):SMB2Ioct
 
     return returnStruct
 
-proc SMB2ReadRequest*(fileID: array[16,byte]):SMB2ReadHeader = 
+proc SMB2ReadRequest*(fileID: array[16,byte], length: array[4, byte] =  [byte 0xb8, 0x0c, 0x00, 0x00 ]):SMB2ReadHeader = 
     var returnStruct:SMB2ReadHeader
     returnStruct.StructureSize = [byte 0x31, 0x00]
     returnStruct.Padding = 0x50
     returnStruct.Flags = 0x00
-    returnStruct.Length = [byte 0xb8, 0x0c, 0x00, 0x00 ]
+    returnStruct.Length = length
     returnStruct.Offset = [byte 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
     returnStruct.FileID = fileID
     returnStruct.MinimumCount = [byte 0x00, 0x00, 0x00, 0x00]
@@ -246,4 +246,14 @@ proc OpenSCManagerWFiller*(targetBytesInWCharForm:WideCStringObj):seq[byte] =
     copyMem(addr returnData[0],addr marshalledTarget[0],marshalledTarget.len)
     copyMem(addr returnData[marshalledTarget.len],addr remainingData, sizeof(remainingData))
     return returnData
+
+proc EnumServicesStatusWFiller*(scManagerHandle: ptr array[20,byte], bufferSize: uint32):EnumServicesStatusWData = 
+    var returnStruct:EnumServicesStatusWData
+    var bufferArray:array[4,byte] = [(cast[ptr byte](unsafeAddr bufferSize))[],(cast[ptr byte](unsafeAddr(bufferSize)) + 1)[],(cast[ptr byte](unsafeAddr(bufferSize)) + 2)[],(cast[ptr byte](unsafeAddr(bufferSize)) + 3)[] ]
+    returnStruct.ContextHandle = scManagerHandle[]
+    returnStruct.ServiceType = [byte 0x10, 0x00, 0x00, 0x00]
+    returnStruct.ServiceState = [byte 0x03, 0x00, 0x00, 0x00]
+    returnStruct.BufferSize = bufferArray
+    returnStruct.ResumeIndex = [byte 0x00, 0x00, 0x00, 0x00]
+    return returnStruct
 
