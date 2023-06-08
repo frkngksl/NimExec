@@ -378,8 +378,32 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
                 firstTime = false
                 length = [byte 0xb8, 0x10, 0x00, 0x00]
                 fragmentedEnumList.add(tempRPCData)
-            var returnedServiceNum:int = (cast[ptr int](addr fragmentedEnumList[fragmentedEnumList.len-12]))[];
+            var returnedServiceNum:int = (cast[ptr int](addr fragmentedEnumList[fragmentedEnumList.len-12]))[]
+            var offset:int = 4
+            var nameOffset:uint32 = 0
+            var dispOffset:uint32 = 0
+            var serviceType:uint32 = 0
+            var serviceState:uint32 = 0
+            var serviceNamePtr:ptr byte 
+            var serviceName:string
+            var displayNamePtr:ptr byte
+            var displayName:string
             echo "[+] Number of obtained services: ", returnedServiceNum
+            for i in countup(0,returnedServiceNum-1):
+                nameOffset = (cast[ptr uint32](addr fragmentedEnumList[offset]))[]
+                dispOffset = (cast[ptr uint32](addr fragmentedEnumList[offset+4]))[]
+                serviceType = (cast[ptr uint32](addr fragmentedEnumList[offset+8]))[]
+                serviceState = (cast[ptr uint32](addr fragmentedEnumList[offset+12]))[]
+                serviceNamePtr = addr(fragmentedEnumList[nameOffset+4])
+                serviceName = ExtractWchar(serviceNamePtr,fragmentedEnumList.len-cast[int](nameOffset))
+                displayNamePtr = addr(fragmentedEnumList[dispOffset+4])
+                displayName = ExtractWchar(displayNamePtr,fragmentedEnumList.len-cast[int](dispOffset))
+                if(serviceName == "" or displayName == ""):
+                    return false
+                echo serviceName
+                echo displayName
+                offset+=36
+            return true
         else:
             # If you encounter such a case, please send a wireshark capture.
             return false

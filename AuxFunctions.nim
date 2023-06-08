@@ -125,3 +125,26 @@ proc MarshallStringForRPC*(targetString:WideCStringObj,isUnique:bool = false): s
     returnValue.add(unicodeLengthArray)
     returnValue.add(targetStringBytes)
     return returnValue
+
+
+proc ExtractWchar*(wcharArray: ptr byte, maxLength: int): string = 
+    var i:int = 0
+    var index:int = 0
+    var tempSeq:seq[byte]
+    while(i<maxLength):
+        if((wcharArray+i)[] == 0x00 and (wcharArray+i+1)[] == 0x00):
+            index = i
+            break
+        i+=1
+    if(index == 0):
+        return ""
+    index = index + index mod 2
+    tempSeq = GetByteRange(wcharArray,0,index-1)
+    var tempSeq2:seq[int16]
+    for i in countup(0,index-2,2):
+        tempSeq2.add((cast[ptr int16](addr tempSeq[i]))[])
+    var tempWideString = newWideCString(tempSeq2.len)
+    for i in countup(0,tempSeq2.len-1):
+        tempWideString[i] = cast[Utf16Char](tempSeq2[i])
+    return $tempWideString
+    
