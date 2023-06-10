@@ -12,6 +12,7 @@ when isMainModule:
     if(not ParseArgs(paramCount(),commandLineParams(),addr optionsStruct)):
         PrintHelp() 
         quit(0)
+    var serviceList:seq[ServiceInfo] = newSeq[ServiceInfo](0)
     var messageID:uint64 = 0
     var treeID:array[4,byte]
     var sessionID:array[8,byte]
@@ -71,12 +72,12 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] SCManager handle is obtained!"
-    if(not EnumServicesStatusWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle)):
+    if(not EnumServicesStatusWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle, addr serviceList)):
         echo "[!] Problem in OpenSCManagerW RPC!"
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] SCManager handle is obtained!"
-
+    
     
     
     

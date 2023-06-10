@@ -324,7 +324,7 @@ proc ReadFragment(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,
     messageID[] = messageID[]+1
     return (returnValue,returnSize)
    
-proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte]):bool =
+proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte], serviceList: ptr seq[ServiceInfo]):bool =
     var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
     var enumServicesStatusWData:EnumServicesStatusWData = EnumServicesStatusWFiller(scManagerHandle,0)
     var rpcHeader:RPCHeader = RPCHeaderFiller(sizeof(EnumServicesStatusWData),callID,[byte 0x0e, 0x00])
@@ -378,31 +378,30 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
                 firstTime = false
                 length = [byte 0xb8, 0x10, 0x00, 0x00]
                 fragmentedEnumList.add(tempRPCData)
-            var returnedServiceNum:int = (cast[ptr int](addr fragmentedEnumList[fragmentedEnumList.len-12]))[]
+            var returnedServiceNum:uint32 = (cast[ptr uint32](addr fragmentedEnumList[servicesBufferSize+10]))[]            
+
+            var tempIndex:uint32 = 0
             var offset:int = 4
             var nameOffset:uint32 = 0
             var dispOffset:uint32 = 0
-            var serviceType:uint32 = 0
-            var serviceState:uint32 = 0
             var serviceNamePtr:ptr byte 
-            var serviceName:string
             var displayNamePtr:ptr byte
-            var displayName:string
+            var serviceInfoStruct:ServiceInfo
             echo "[+] Number of obtained services: ", returnedServiceNum
-            for i in countup(0,returnedServiceNum-1):
+            while(tempIndex<returnedServiceNum):
                 nameOffset = (cast[ptr uint32](addr fragmentedEnumList[offset]))[]
                 dispOffset = (cast[ptr uint32](addr fragmentedEnumList[offset+4]))[]
-                serviceType = (cast[ptr uint32](addr fragmentedEnumList[offset+8]))[]
-                serviceState = (cast[ptr uint32](addr fragmentedEnumList[offset+12]))[]
+                serviceInfoStruct.ServiceType = (cast[ptr uint32](addr fragmentedEnumList[offset+8]))[]
+                serviceInfoStruct.ServiceState = (cast[ptr uint32](addr fragmentedEnumList[offset+12]))[]
                 serviceNamePtr = addr(fragmentedEnumList[nameOffset+4])
-                serviceName = ExtractWchar(serviceNamePtr,fragmentedEnumList.len-cast[int](nameOffset))
+                serviceInfoStruct.ServiceName = ExtractWchar(serviceNamePtr,fragmentedEnumList.len-cast[int](nameOffset))
                 displayNamePtr = addr(fragmentedEnumList[dispOffset+4])
-                displayName = ExtractWchar(displayNamePtr,fragmentedEnumList.len-cast[int](dispOffset))
-                if(serviceName == "" or displayName == ""):
+                serviceInfoStruct.DisplayName = ExtractWchar(displayNamePtr,fragmentedEnumList.len-cast[int](dispOffset))
+                if(serviceInfoStruct.ServiceName == "" or serviceInfoStruct.DisplayName == ""):
                     return false
-                echo serviceName
-                echo displayName
+                serviceList[].add(serviceInfoStruct)
                 offset+=36
+                tempIndex+=1
             return true
         else:
             # If you encounter such a case, please send a wireshark capture.

@@ -1,3 +1,19 @@
+const 
+    SERVICE_DRIVER* = 0x0000000B
+    SERVICE_FILE_SYSTEM_DRIVER* = 0x00000002
+    SERVICE_KERNEL_DRIVER* = 0x00000001
+    SERVICE_WIN32* = 0x00000030
+    SERVICE_WIN32_OWN_PROCESS* = 0x00000010
+    SERVICE_WIN32_SHARE_PROCESS* = 0x00000020
+
+    SERVICE_CONTINUE_PENDING* = 0x00000005
+    SERVICE_PAUSE_PENDING* = 0x00000006
+    SERVICE_PAUSED* = 0x00000007
+    SERVICE_RUNNING* = 0x00000004
+    SERVICE_START_PENDING* = 0x00000002
+    SERVICE_STOP_PENDING* = 0x00000003
+    SERVICE_STOPPED* = 0x00000001
+
 type
     OPTIONS* {.bycopy,packed.} = object
         IsVerbose*: bool
@@ -8,6 +24,12 @@ type
         Command*: string
         Service*:string
         OutputUsername*:string
+    
+    ServiceInfo* {.bycopy,packed.} = object
+        ServiceType*:uint32
+        ServiceState*:uint32
+        ServiceName*:string
+        DisplayName*:string
 
     NetBiosHeader* {.bycopy,packed.} = object
         MessageType*: byte
