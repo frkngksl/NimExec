@@ -378,7 +378,7 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
                 firstTime = false
                 length = [byte 0xb8, 0x10, 0x00, 0x00]
                 fragmentedEnumList.add(tempRPCData)
-            var returnedServiceNum:uint32 = (cast[ptr uint32](addr fragmentedEnumList[servicesBufferSize+10]))[]            
+            var returnedServiceNum:uint32 = (cast[ptr uint32](addr fragmentedEnumList[fragmentedEnumList.len-12]))[]            
 
             var tempIndex:uint32 = 0
             var offset:int = 4
@@ -446,7 +446,7 @@ proc OpenServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr arra
 
 
 
-proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte]):bool =
+proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte], serviceStruct: ptr ServiceInfo):bool =
     var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
     var queryServiceConfigWData:QueryServiceConfigWData = QueryServiceConfigWFiller(scServiceHandle,[byte 0x00, 0x00, 0x00, 0x00])
     var rpcHeader:RPCHeader = RPCHeaderFiller(sizeof(QueryServiceConfigWData),callID,[byte 0x11, 0x00])
@@ -481,27 +481,47 @@ proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
         copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr queryServiceConfigWData, sizeof(QueryServiceConfigWData))
         (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
         if((cast[ptr uint32](addr returnValue[returnSize - 4]))[] == 0):
+            messageID[] = messageID[]+1
+            callID[] = callID[]+1
             var rpcData:seq[byte] = GetByteRange(addr returnValue[0],140,cast[int](returnSize-1))
-            var serviceType:uint32 = (cast[ptr uint32](addr rpcData[0]))[]
-            var startType:uint32 = (cast[ptr uint32](addr rpcData[4]))[]
-            var errorControl:uint32 = (cast[ptr uint32](addr rpcData[8]))[]
-            var dwTagId:uint32  =  (cast[ptr uint32](addr rpcData[20]))[]
+            # var serviceType:uint32 = (cast[ptr uint32](addr rpcData[0]))[]
+            serviceStruct[].StartType = (cast[ptr uint32](addr rpcData[4]))[]
+            # var errorControl:uint32 = (cast[ptr uint32](addr rpcData[8]))[]
+            # var dwTagId:uint32  =  (cast[ptr uint32](addr rpcData[20]))[]
             var tempOffset:int = 0;
             var realOffset:int = 36;
-            var binaryPathName:string = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
+            serviceStruct[].BinaryPath = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
             realOffset+=tempOffset
-            var loadOrderGroup:string = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
+            serviceStruct[].LoadOrderGroup = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
             realOffset+=tempOffset
-            var dependencies:string = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
+            serviceStruct[].Dependencies = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
             realOffset+=tempOffset
-            var serviceStartName:string = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
-            echo(binaryPathName)
-            echo(loadOrderGroup)
-            echo(dependencies)
-            echo(serviceStartName)
+            serviceStruct[].ServiceStartName = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
             return true
         else:
             return false
     else:
         return false   
     
+proc ChangeServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte], command: string):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+    var changeServiceConfigWData:seq[byte] = ChangeServiceConfigWFiller(scServiceHandle, 0x00000003,command)
+    var rpcHeader:RPCHeader = RPCHeaderFiller(changeServiceConfigWData.len,callID,[byte 0x0b, 0x00])
+    var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,changeServiceConfigWData.len+sizeof(RPCHeader))
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + changeServiceConfigWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+    var dataLength:int = sizeof(SMB2Header) + changeServiceConfigWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr changeServiceConfigWData[0], changeServiceConfigWData.len)
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[returnSize-4]))[] == 0):
+        messageID[] = messageID[]+1
+        callID[] = callID[]+1
+        return true
+    else:
+        return false

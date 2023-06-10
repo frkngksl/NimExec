@@ -272,3 +272,26 @@ proc QueryServiceConfigWFiller*(scServiceHandle: ptr array[20,byte], bufferSize:
     returnValue.ServiceHandle = scServiceHandle[]
     returnValue.BufferSize = bufferSize
     return returnValue
+
+proc ChangeServiceConfigWFiller*(scServiceHandle: ptr array[20,byte], startType:uint32, command:string):seq[byte] = 
+    var returnValue:seq[byte]
+    returnValue.add(scServiceHandle[])
+    returnValue.add([byte 0xFF, 0xFF, 0xFF, 0xFF]) # Service Type --> SERVICE_NO_CHANGE
+    returnValue.add([byte (cast[ptr byte](unsafeAddr startType)[]),(cast[ptr byte](unsafeAddr(startType)) + 1)[], (cast[ptr byte](unsafeAddr(startType)) + 2)[], (cast[ptr byte](unsafeAddr(startType)) + 3)[]]) # Start Type --> SERVICE_NO_CHANGE
+    returnValue.add([byte 0xFF, 0xFF, 0xFF, 0xFF]) # Error Control
+    returnValue.add(MarshallStringForRPC(newWideCString(command),true)) # Command
+    returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # LoadOrder Group
+    returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # dwTagID
+    returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # Dependencies
+    returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # DependSize
+    returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # ServiceStartName
+    returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # Password
+    returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # Password Size
+    returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # Display name
+    return returnValue
+
+    
+
+
+    
+

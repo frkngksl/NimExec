@@ -78,15 +78,27 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] List of services is obtained!"
-    if(not OpenServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle,serviceList[serviceList.len-1].ServiceName,addr scServiceHandle)):
+    var tempServicePtr:ptr ServiceInfo = nil
+    for i in countup(0,serviceList.len-1):
+        if(serviceList[i].ServiceName == "test31"):
+            tempServicePtr = addr serviceList[i]
+            break
+    if(tempServicePtr == nil):
+        quit(0)
+    if(not OpenServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle,tempServicePtr[].ServiceName,addr scServiceHandle)):
         echo "[!] Problem in OpenServiceW RPC!"
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Service is opened!"
-    if(not QueryServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle)):
+    if(not QueryServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle, tempServicePtr)):
         echo "[!] Problem in QueryServiceConfigW RPC!"
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Service config is obtained!"
+    if(not ChangeServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle, optionsStruct.Command)):
+        echo "[!] Problem in ChangeServiceConfigWRPC RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Service config is changed!"
     
     
