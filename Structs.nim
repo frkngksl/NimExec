@@ -230,6 +230,11 @@ type
         BufferSize*: array[4,byte]
         ResumeIndex*: array[4,byte]
 
+    QueryServiceConfigWData*  {.bycopy,packed.} = object
+        ServiceHandle*: array[20,byte]
+        BufferSize*: array[4,byte]
+
+
 
 
 

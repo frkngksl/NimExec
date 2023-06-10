@@ -18,6 +18,7 @@ when isMainModule:
     var sessionID:array[8,byte]
     var fileID:array[16,byte]
     var scManagerHandle:array[20,byte]
+    var scServiceHandle:array[20,byte]
     var callID:int = 0
     if(optionsStruct.Domain != ""):
         optionsStruct.OutputUsername = optionsStruct.Domain & "\\" & optionsStruct.Username
@@ -73,11 +74,19 @@ when isMainModule:
     if(optionsStruct.IsVerbose):
         echo "[+] SCManager handle is obtained!"
     if(not EnumServicesStatusWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle, addr serviceList)):
-        echo "[!] Problem in OpenSCManagerW RPC!"
+        echo "[!] Problem in EnumServicesStatusW RPC!"
         quit(0)
     if(optionsStruct.IsVerbose):
-        echo "[+] SCManager handle is obtained!"
-    
-    
+        echo "[+] List of services is obtained!"
+    if(not OpenServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle,serviceList[serviceList.len-1].ServiceName,addr scServiceHandle)):
+        echo "[!] Problem in OpenServiceW RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Service is opened!"
+    if(not QueryServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle)):
+        echo "[!] Problem in QueryServiceConfigW RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Service config is obtained!"
     
     

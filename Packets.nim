@@ -409,3 +409,99 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
 
     else:
         return false
+
+proc OpenServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte], serviceName: string, scServiceHandle: ptr array[20,byte]):bool =
+    var accessMask:int = 0xF01FF
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+    var openServiceWData:seq[byte] = OpenServiceWFiller(scManagerHandle,serviceName,accessMask)
+    var rpcHeader:RPCHeader = RPCHeaderFiller(openServiceWData.len,callID,[byte 0x10, 0x00])
+    var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,openServiceWData.len+sizeof(RPCHeader))
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + openServiceWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+    var dataLength:int = sizeof(SMB2Header) + openServiceWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr openServiceWData[0], openServiceWData.len)
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[returnSize-4]))[] == 0):
+        messageID[] = messageID[]+1
+        callID[] = callID[]+1
+        var isZero:bool = true
+        var tempArr:seq[byte] = GetByteRange(addr returnValue[0],140,159)
+        # Check all zero
+        for i in countup(0,19):
+            if(tempArr[i] != 0x00):
+                isZero = false
+                break
+        if(isZero):
+            return false
+        copyMem(scServiceHandle,addr tempArr[0],20)
+        return true
+    else:
+        return false   
+
+
+
+proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte]):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+    var queryServiceConfigWData:QueryServiceConfigWData = QueryServiceConfigWFiller(scServiceHandle,[byte 0x00, 0x00, 0x00, 0x00])
+    var rpcHeader:RPCHeader = RPCHeaderFiller(sizeof(QueryServiceConfigWData),callID,[byte 0x11, 0x00])
+    var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,sizeof(QueryServiceConfigWData)+sizeof(RPCHeader))
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(QueryServiceConfigWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+    var dataLength:int = sizeof(SMB2Header) + sizeof(QueryServiceConfigWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr queryServiceConfigWData, sizeof(QueryServiceConfigWData))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    
+    if((cast[ptr uint32](addr returnValue[returnSize - 4]))[] == 122 and (cast[ptr uint32](addr returnValue[176]))[] != 0): # 122 --> ERROR_INSUFFICIENT_BUFFER
+        messageID[] = messageID[]+1
+        callID[] = callID[]+1
+        var bufferSize:seq[byte] = GetByteRange(addr returnValue[0],176,179)
+        smb2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+        queryServiceConfigWData = QueryServiceConfigWFiller(scServiceHandle,[byte bufferSize[0], bufferSize[1], bufferSize[2], bufferSize[3]])
+        rpcHeader = RPCHeaderFiller(sizeof(QueryServiceConfigWData),callID,[byte 0x11, 0x00])
+        smb2IoctlHeader = SMB2IoctlRequest(fileID,sizeof(QueryServiceConfigWData)+sizeof(RPCHeader))
+        netbiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(QueryServiceConfigWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+        dataLength = sizeof(SMB2Header) + sizeof(QueryServiceConfigWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+        sendData = newSeq[byte](dataLength)
+        copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+        copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr queryServiceConfigWData, sizeof(QueryServiceConfigWData))
+        (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+        if((cast[ptr uint32](addr returnValue[returnSize - 4]))[] == 0):
+            var rpcData:seq[byte] = GetByteRange(addr returnValue[0],140,cast[int](returnSize-1))
+            var serviceType:uint32 = (cast[ptr uint32](addr rpcData[0]))[]
+            var startType:uint32 = (cast[ptr uint32](addr rpcData[4]))[]
+            var errorControl:uint32 = (cast[ptr uint32](addr rpcData[8]))[]
+            var dwTagId:uint32  =  (cast[ptr uint32](addr rpcData[20]))[]
+            var tempOffset:int = 0;
+            var realOffset:int = 36;
+            var binaryPathName:string = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
+            realOffset+=tempOffset
+            var loadOrderGroup:string = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
+            realOffset+=tempOffset
+            var dependencies:string = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
+            realOffset+=tempOffset
+            var serviceStartName:string = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
+            echo(binaryPathName)
+            echo(loadOrderGroup)
+            echo(dependencies)
+            echo(serviceStartName)
+            return true
+        else:
+            return false
+    else:
+        return false   
+    

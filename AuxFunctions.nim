@@ -9,7 +9,7 @@ proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte],sendFla
     var tempBytes:array[5096,byte]
     var received:uint32 = 0
     var index:int = 0
-    var expectedSize:uint32 = 0
+    var expectedSize:uint32 = 4
     var sentSize:int = 0
 
     try:
@@ -26,7 +26,7 @@ proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte],sendFla
         var val2:uint32 = cast[uint32](returnBytes[2])
         var val3:uint32 = cast[uint32](returnBytes[1])
         var val4:uint32 = cast[uint32](0)
-        expectedSize = (val1 shl 0) or (val2 shl 8) or (val3 shl 16) or (val4 shl 24)+4
+        expectedSize += (val1 shl 0) or (val2 shl 8) or (val3 shl 16) or (val4 shl 24)
         while(expectedSize > received):
             index = cast[int](received)
             received += cast[uint32](socket.recv(addr tempBytes[0],5096))
@@ -124,6 +124,12 @@ proc MarshallStringForRPC*(targetString:WideCStringObj,isUnique:bool = false): s
     returnValue.add(offset)
     returnValue.add(unicodeLengthArray)
     returnValue.add(targetStringBytes)
+    var modValue:int = returnValue.len mod 4
+    var paddingLen:int = (if modValue == 0: 0 else: 4-modValue)
+    if(paddingLen != 0):
+        var paddingBytes:seq[byte] = newSeq[byte](paddingLen)
+        zeroMem(addr paddingBytes[0],paddingLen)
+        returnValue.add(paddingBytes)
     return returnValue
 
 
@@ -148,3 +154,22 @@ proc ExtractWchar*(wcharArray: ptr byte, maxLength: int): string =
         tempWideString[i] = cast[Utf16Char](tempSeq2[i])
     return $tempWideString
     
+
+proc UnmarshallStringForRPC*(bufferArray: ptr byte, offset: ptr int): string = 
+    var actualCount:uint32 = (cast[ptr uint32](addr bufferArray[8]))[]
+    if (actualCount == 1):
+        offset[] = 12+4 # 2 comes from null bytes 2 comes from padding
+        return ""
+    else:
+        var tempSeq:seq[int16]
+        var i:uint32 = 0
+        while(i<actualCount*2):
+            tempSeq.add((cast[ptr int16](cast[uint64](bufferArray)+12+i))[])
+            i+=2
+        var modValue:int = (cast[int](actualCount)*2) mod 4
+        var paddingLen:int = (if modValue == 0: 0 else: 4-modValue)
+        offset[] = paddingLen + 12 + 2*cast[int](actualCount)
+        var tempWideString = newWideCString(tempSeq.len)
+        for i in countup(0,tempSeq.len-1):
+            tempWideString[i] = cast[Utf16Char](tempSeq[i])
+        return $tempWideString

@@ -257,3 +257,18 @@ proc EnumServicesStatusWFiller*(scManagerHandle: ptr array[20,byte], bufferSize:
     returnStruct.ResumeIndex = [byte 0x00, 0x00, 0x00, 0x00]
     return returnStruct
 
+proc OpenServiceWFiller*(scManagerHandle: ptr array[20,byte], serviceName: string, accessMask: int):seq[byte] = 
+    var marshalledString:seq[byte] = MarshallStringForRPC(newWideCString(serviceName))
+    var returnSize:int = 20 + 4 + marshalledString.len
+    var returnValue:seq[byte] = newSeq[byte](returnSize)
+    copyMem(addr returnValue[0],addr scManagerHandle[0],20)
+    copyMem(addr returnValue[20],addr marshalledString[0],marshalledString.len)
+    copyMem(addr returnValue[20+marshalledString.len], unsafeAddr accessMask,sizeof(int))
+    return returnValue
+
+
+proc QueryServiceConfigWFiller*(scServiceHandle: ptr array[20,byte], bufferSize: array[4,byte]):QueryServiceConfigWData = 
+    var returnValue:QueryServiceConfigWData
+    returnValue.ServiceHandle = scServiceHandle[]
+    returnValue.BufferSize = bufferSize
+    return returnValue
