@@ -290,6 +290,12 @@ proc ChangeServiceConfigWFiller*(scServiceHandle: ptr array[20,byte], startType:
     returnValue.add([byte 0x00, 0x00, 0x00, 0x00]) # Display name
     return returnValue
 
+proc StartServiceWFiller*(scServiceHandle: ptr array[20,byte]):StartServiceWData = 
+    var returnValue:StartServiceWData
+    returnValue.ServiceHandle = scServiceHandle[]
+    returnValue.Argc = [byte 0x00, 0x00, 0x00, 0x00]
+    returnValue.Argv = [byte 0x00, 0x00, 0x00, 0x00]
+    return returnValue
     
 
 

@@ -525,3 +525,66 @@ proc ChangeServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: 
         return true
     else:
         return false
+
+
+proc StartServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte]):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+    var startServiceWData:StartServiceWData = StartServiceWFiller(scServiceHandle)
+    var rpcHeader:RPCHeader = RPCHeaderFiller(sizeof(StartServiceWData),callID,[byte 0x13, 0x00])
+    var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,sizeof(StartServiceWData)+sizeof(RPCHeader))
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(StartServiceWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+    var dataLength:int = sizeof(SMB2Header) + sizeof(StartServiceWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr startServiceWData, sizeof(StartServiceWData))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    while(returnValue[12] == 0x03 and returnValue[13] == 0x01 and returnValue[14] == 0x00 and returnValue[15] == 0x00):
+        sleep(10000);
+        (returnValue,returnSize) = SendAndReceiveFromSocket(socket,nil, false)
+    var startServiceReturnValue:uint32 = cast[ptr uint32](addr returnValue[returnSize-4])[]
+    case(startServiceReturnValue):
+        of ERROR_SUCCESS:
+            echo "[+] StartServiceW returned successfully!"
+        of ERROR_FILE_NOT_FOUND:
+            echo "[!] StartServiceW Return Value: ",ERROR_FILE_NOT_FOUND," (ERROR_FILE_NOT_FOUND)"
+        of ERROR_PATH_NOT_FOUND:
+            echo "[!] StartServiceW Return Value: ",ERROR_PATH_NOT_FOUND," (ERROR_PATH_NOT_FOUND)"
+        of ERROR_ACCESS_DENIED:
+            echo "[!] StartServiceW Return Value: ",ERROR_ACCESS_DENIED," (ERROR_ACCESS_DENIED)"
+        of ERROR_INVALID_HANDLE:
+            echo "[!] StartServiceW Return Value: ",ERROR_INVALID_HANDLE," (ERROR_INVALID_HANDLE)"
+        of ERROR_INVALID_PARAMETER:
+            echo "[!] StartServiceW Return Value: ",ERROR_INVALID_PARAMETER," (ERROR_INVALID_PARAMETER)"
+        of ERROR_SERVICE_REQUEST_TIMEOUT:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_REQUEST_TIMEOUT," (ERROR_SERVICE_REQUEST_TIMEOUT)"
+        of ERROR_SERVICE_NO_THREAD:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_NO_THREAD," (ERROR_SERVICE_NO_THREAD)"
+        of ERROR_SERVICE_DATABASE_LOCKED:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_DATABASE_LOCKED," (ERROR_SERVICE_DATABASE_LOCKED)"
+        of ERROR_SERVICE_ALREADY_RUNNING:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_ALREADY_RUNNING," (ERROR_SERVICE_ALREADY_RUNNING)"
+        of ERROR_SERVICE_DISABLED:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_DISABLED," (ERROR_SERVICE_DISABLED)"
+        of ERROR_SERVICE_DEPENDENCY_FAIL:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_DEPENDENCY_FAIL," (ERROR_SERVICE_DEPENDENCY_FAIL)"
+        of ERROR_SERVICE_LOGON_FAILED:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_LOGON_FAILED," (ERROR_SERVICE_LOGON_FAILED)"
+        of ERROR_SERVICE_MARKED_FOR_DELETE:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_MARKED_FOR_DELETE," (ERROR_SERVICE_MARKED_FOR_DELETE)"
+        of ERROR_SERVICE_DEPENDENCY_DELETED:
+            echo "[!] StartServiceW Return Value: ",ERROR_SERVICE_DEPENDENCY_DELETED," (ERROR_SERVICE_DEPENDENCY_DELETED)"
+        of ERROR_SHUTDOWN_IN_PROGRESS:
+            echo "[!] StartServiceW Return Value: ",ERROR_SHUTDOWN_IN_PROGRESS," (ERROR_SHUTDOWN_IN_PROGRESS)"
+        else:
+            echo "[!] StartServiceW Unknown Error: ", startServiceReturnValue
+    if((cast[ptr uint32](addr returnValue[12]))[] == 0):
+        messageID[] = messageID[]+1
+        callID[] = callID[]+1
+        return true
+    else:
+        return false

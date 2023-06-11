@@ -14,6 +14,23 @@ const
     SERVICE_STOP_PENDING* = 0x00000003
     SERVICE_STOPPED* = 0x00000001
 
+    ERROR_FILE_NOT_FOUND* = 2
+    ERROR_PATH_NOT_FOUND* = 3
+    ERROR_ACCESS_DENIED* = 5
+    ERROR_INVALID_HANDLE* = 6
+    ERROR_INVALID_PARAMETER* = 87
+    ERROR_SERVICE_REQUEST_TIMEOUT* = 1053
+    ERROR_SERVICE_NO_THREAD* = 1054
+    ERROR_SERVICE_DATABASE_LOCKED* = 1055
+    ERROR_SERVICE_ALREADY_RUNNING* = 1056
+    ERROR_SERVICE_DISABLED* = 1058
+    ERROR_SERVICE_DEPENDENCY_FAIL* = 1068
+    ERROR_SERVICE_LOGON_FAILED* = 1069
+    ERROR_SERVICE_MARKED_FOR_DELETE* = 1072
+    ERROR_SERVICE_DEPENDENCY_DELETED* = 1075
+    ERROR_SHUTDOWN_IN_PROGRESS* = 1115
+    ERROR_SUCCESS* = 0
+
 type
     OPTIONS* {.bycopy,packed.} = object
         IsVerbose*: bool
@@ -235,9 +252,15 @@ type
         BufferSize*: array[4,byte]
         ResumeIndex*: array[4,byte]
 
-    QueryServiceConfigWData*  {.bycopy,packed.} = object
+    QueryServiceConfigWData* {.bycopy,packed.} = object
         ServiceHandle*: array[20,byte]
         BufferSize*: array[4,byte]
+    
+    StartServiceWData* {.bycopy,packed.} = object
+        ServiceHandle*: array[20,byte]
+        Argc*: array[4,byte]
+        Argv*: array[4,byte]
+        
 
 
 

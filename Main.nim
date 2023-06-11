@@ -96,9 +96,14 @@ when isMainModule:
     if(optionsStruct.IsVerbose):
         echo "[+] Service config is obtained!"
     if(not ChangeServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle, optionsStruct.Command)):
-        echo "[!] Problem in ChangeServiceConfigWRPC RPC!"
+        echo "[!] Problem in ChangeServiceConfigW RPC!"
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Service config is changed!"
+    if(not StartServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle)):
+        echo "[!] Problem in StarServiceW RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Service start request is sent!"
     
     
