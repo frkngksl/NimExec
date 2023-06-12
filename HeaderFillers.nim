@@ -296,8 +296,31 @@ proc StartServiceWFiller*(scServiceHandle: ptr array[20,byte]):StartServiceWData
     returnValue.Argc = [byte 0x00, 0x00, 0x00, 0x00]
     returnValue.Argv = [byte 0x00, 0x00, 0x00, 0x00]
     return returnValue
-    
 
+proc CloseServiceHandleFiller*(scServiceHandle: ptr array[20,byte]):CloseServiceHandleData = 
+    var returnValue:CloseServiceHandleData
+    returnValue.ServiceHandle = scServiceHandle[]
+    return returnValue
+
+proc SMB2CloseFiller*(fileID: ptr array[16,byte]):SMB2CloseData = 
+    var returnValue:SMB2CloseData
+    returnValue.StructureSize = [byte 0x18, 0x00]
+    returnValue.Flags = [byte 0x00, 0x00]
+    returnValue.Reserved = [byte 0x00, 0x00, 0x00, 0x00]
+    returnValue.FileID = fileID[]
+    return returnValue
+
+proc TreeDisconnectFiller*():TreeDisconnectData = 
+    var returnValue:TreeDisconnectData
+    returnValue.StructureSize = [byte 0x04, 0x00]
+    returnValue.Reserved = [byte 0x00, 0x00]
+    return returnValue
+
+proc SessionLogoffRequestFiller*():SessionLogoffData = 
+    var returnValue:SessionLogoffData
+    returnValue.StructureSize = [byte 0x04, 0x00]
+    returnValue.Reserved = [byte 0x00, 0x00]
+    return returnValue
 
     
 

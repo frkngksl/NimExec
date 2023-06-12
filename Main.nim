@@ -101,9 +101,32 @@ when isMainModule:
     if(optionsStruct.IsVerbose):
         echo "[+] Service config is changed!"
     if(not StartServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle)):
-        echo "[!] Problem in StarServiceW RPC!"
+        echo "[!] Problem in StartServiceW RPC!"
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Service start request is sent!"
-    
-    
+    if(not CloseServiceHandleRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle)):
+        echo "[!] Problem in CloseServiceHandle RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Service handle is closed!"
+    if(not CloseServiceHandleRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle)):
+        echo "[!] Problem in CloseServiceHandle RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Service Manager handle is closed!"
+    if(not SMB2Close(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID)):
+        echo "[!] Problem in SMB2 Close Request!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] SMB is closed!"    
+    if(not TreeDisconnectRequest(tcpSocket, addr messageID, addr treeID, addr sessionID)):
+        echo "[!] Problem in Tree Disconnect Request!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Tree is disconnected!"  
+    if(not SessionLogoffRequest(tcpSocket, addr messageID, addr treeID, addr sessionID)):
+        echo "[!] Problem in Session Logoff Request!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Session logoff!"  

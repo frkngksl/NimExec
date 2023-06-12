@@ -588,3 +588,82 @@ proc StartServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr arr
         return true
     else:
         return false
+
+proc CloseServiceHandleRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scHandle: ptr array[20,byte]):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+    var closeServiceHandleData:CloseServiceHandleData = CloseServiceHandleFiller(scHandle)
+    var rpcHeader:RPCHeader = RPCHeaderFiller(sizeof(CloseServiceHandleData),callID,[byte 0x00, 0x00])
+    var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,sizeof(CloseServiceHandleData)+sizeof(RPCHeader))
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(CloseServiceHandleData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+    var dataLength:int = sizeof(SMB2Header) + sizeof(CloseServiceHandleData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr closeServiceHandleData, sizeof(CloseServiceHandleData))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[returnSize-4]))[] == 0):
+        messageID[] = messageID[]+1
+        callID[] = callID[]+1
+        return true
+    else:
+        return false
+
+
+proc SMB2Close*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte]):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x06,1,1,messageID[],treeID[],sessionID[])
+    var smb2CloseData:SMB2CloseData = SMB2CloseFiller(fileID)
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(SMB2CloseData))
+    var dataLength:int = sizeof(SMB2Header) + sizeof(SMB2CloseData) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2CloseData, sizeof(SMB2CloseData))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[12]))[] == 0):
+        messageID[] = messageID[]+1
+        return true
+    else:
+        return false
+
+
+proc TreeDisconnectRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte]):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x04,1,1,messageID[],treeID[],sessionID[])
+    var treeDisconnectData:TreeDisconnectData = TreeDisconnectFiller()
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(TreeDisconnectData))
+    var dataLength:int = sizeof(SMB2Header) + sizeof(TreeDisconnectData) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr treeDisconnectData, sizeof(TreeDisconnectData))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[12]))[] == 0):
+        messageID[] = messageID[]+1
+        return true
+    else:
+        return false
+
+proc SessionLogoffRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte]):bool =
+    var smb2Header:SMB2Header = SMB2HeaderFiller(0x02,1,1,messageID[],treeID[],sessionID[])
+    var sessionLogoffData:SessionLogoffData = SessionLogoffRequestFiller()
+    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(SessionLogoffData))
+    var dataLength:int = sizeof(SMB2Header) + sizeof(SessionLogoffData) + sizeof(NetBiosHeader)
+    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var returnValue:array[5096,byte]
+    var returnSize:uint32
+    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr sessionLogoffData, sizeof(SessionLogoffData))
+    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    if((cast[ptr uint32](addr returnValue[12]))[] == 0):
+        messageID[] = messageID[]+1
+        return true
+    else:
+        return false

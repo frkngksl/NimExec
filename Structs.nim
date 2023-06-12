@@ -260,6 +260,23 @@ type
         ServiceHandle*: array[20,byte]
         Argc*: array[4,byte]
         Argv*: array[4,byte]
+
+    CloseServiceHandleData* {.bycopy,packed.} = object
+        ServiceHandle*: array[20,byte]
+
+    SMB2CloseData* {.bycopy,packed.} = object
+        StructureSize*: array[2,byte]
+        Flags*: array[2,byte]
+        Reserved*: array[4,byte]
+        FileID*: array[16,byte]
+
+    TreeDisconnectData* {.bycopy,packed.} = object
+        StructureSize*: array[2,byte]
+        Reserved*: array[2,byte]
+
+    SessionLogoffData* {.bycopy,packed.} = object
+        StructureSize*: array[2,byte]
+        Reserved*: array[2,byte]
         
 
 
