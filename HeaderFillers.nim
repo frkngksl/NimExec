@@ -20,7 +20,7 @@ proc SMB2HeaderFiller*(packetCommand:uint16,creditCharge:uint16,creditsRequested
     returnStruct.Reserved = 0
     returnStruct.Command = packetCommand
     returnStruct.CreditsRequested = creditsRequested
-    returnStruct.Flags = 0
+    returnStruct.Flags = [byte 0x00, 0x00, 0x00, 0x00]
     returnStruct.ChainOffset = 0
     returnStruct.MessageID = messageID
     returnStruct.ProcessID = 0
@@ -107,8 +107,8 @@ proc NTLMSSPAuthFiller*(ntlmSSPResponseLength:int):NTLMSSPAuth =
     returnStruct.NTLMSSPAuthNTLMSSPLength = packetNTLMSSPLengthBytes
     return returnStruct
 
-proc TreeConnectRequestFiller*(smbPathLength:int):TreeConnectRequest = 
-    var returnStruct:TreeConnectRequest
+proc TreeConnectRequestFiller*(smbPathLength:int):TreeConnectRequestHeader = 
+    var returnStruct:TreeConnectRequestHeader
     var pathLength:uint32 = cast[uint32](smbPathLength) 
     var pathLengthBytes:array[2,byte] = [(cast[ptr byte](addr pathLength))[],(cast[ptr byte](addr(pathLength)) + 1)[] ]
     returnStruct.StructureSize = [byte 0x09,0x00]

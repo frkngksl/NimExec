@@ -65,7 +65,7 @@ type
         Reserved*: uint16
         Command*: uint16
         CreditsRequested*: uint16
-        Flags*: uint32
+        Flags*: array[4,byte]
         ChainOffset*: uint32
         MessageID*: uint64
         ProcessID*: uint32
@@ -133,7 +133,7 @@ type
         NTLMSSPAuthNTLMSSPID*:array[2,byte]
         NTLMSSPAuthNTLMSSPLength*:array[2,byte]
     
-    TreeConnectRequest* {.bycopy,packed.} = object
+    TreeConnectRequestHeader* {.bycopy,packed.} = object
         StructureSize*:array[2,byte]
         Reserved*:array[2,byte]
         PathOffset*:array[2,byte]
