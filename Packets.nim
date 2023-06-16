@@ -204,10 +204,8 @@ proc TreeConnectRequest*(socket: net.Socket,options:ptr OPTIONS, messageID:ptr u
         var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+smb2Data.len)
         copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2Data[0], smb2Data.len)
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
 
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + smb2Data.len)
     var dataLength:int = sizeof(SMB2Header) + smb2Data.len + sizeof(NetBiosHeader)
@@ -244,10 +242,8 @@ proc CreateRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[
         var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+smb2Data.len)
         copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2Data[0], smb2Data.len)
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2Data[0], smb2Data.len)
@@ -279,10 +275,8 @@ proc RPCBindRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array
         copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2WriteHeader,sizeof(SMB2WriteHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header)+sizeof(SMB2WriteHeader)],addr rpcBindHeader,sizeof(RPCBind))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2WriteHeader, sizeof(SMB2WriteHeader))
@@ -311,10 +305,8 @@ proc ReadRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,
         var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SMB2ReadHeader))
         copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2ReadHeader,sizeof(SMB2ReadHeader))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2ReadHeader, sizeof(SMB2ReadHeader))
@@ -345,10 +337,8 @@ proc OpenSCManagerWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr ar
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr openSCManagerWData[0],openSCManagerWData.len)
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
@@ -390,10 +380,8 @@ proc ReadFragment(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,
         var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SMB2ReadHeader))
         copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2ReadHeader,sizeof(SMB2ReadHeader))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2ReadHeader, sizeof(SMB2ReadHeader))
@@ -418,10 +406,8 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr enumServicesStatusWData,sizeof(EnumServicesStatusWData))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
@@ -447,10 +433,8 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
             copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
             copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
             copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr enumServicesStatusWData,sizeof(EnumServicesStatusWData))
-            var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-            var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-            for i in countup(0,15):
-                smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+            var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+            copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
         copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
         copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
@@ -527,10 +511,8 @@ proc OpenServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr arra
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr openServiceWData[0],openServiceWData.len)
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
@@ -573,10 +555,8 @@ proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr queryServiceConfigWData,sizeof(QueryServiceConfigWData))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
@@ -602,17 +582,15 @@ proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
             copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
             copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
             copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr queryServiceConfigWData,sizeof(QueryServiceConfigWData))
-            var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-            var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-            for i in countup(0,15):
-                smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+            var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+            copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
         copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
         copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
         copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
         copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr queryServiceConfigWData, sizeof(QueryServiceConfigWData))
         (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
-        if((cast[ptr uint32](addr returnValue[returnSize - 4]))[] == 0):
+        if((cast[ptr uint32](addr returnValue[12]))[] == 0 and (cast[ptr uint32](addr returnValue[returnSize - 4]))[] == 0):
             messageID[] = messageID[]+1
             callID[] = callID[]+1
             var rpcData:seq[byte] = GetByteRange(addr returnValue[0],140,cast[int](returnSize-1))
@@ -629,6 +607,41 @@ proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
             serviceStruct[].Dependencies = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
             realOffset+=tempOffset
             serviceStruct[].ServiceStartName = UnmarshallStringForRPC(addr rpcData[realOffset],addr tempOffset)
+            return true
+        elif (returnValue[12] == 0x05 and returnValue[13] == 0x00 and returnValue[14] == 0x00 and returnValue[15] == 0x80): # STATUS_BUFFER_OVERFLOW
+            # Our buffer
+            messageID[] = messageID[]+1
+            var configBufferSize:uint32 = (cast[ptr uint32](addr bufferSize[0]))[]
+
+            var fragmentedEnumList: seq[byte]
+            var firstTime:bool = true
+            var length:array[4,byte] = [byte 0xb8, 0x0c, 0x00, 0x00 ]
+            var tempRPCData:seq[byte] = GetByteRange(addr returnValue[0],116,cast[int](returnSize-1))
+            if(tempRPCData[2] == 0x02):
+                fragmentedEnumList = GetByteRange(addr tempRPCData[0],24,tempRPCData.len-1)
+            else:
+                return false
+            while(configBufferSize > cast[uint32](fragmentedEnumList.len)):
+                (returnValue, returnSize) = ReadFragment(socket,messageID,treeID,sessionID,fileID,length,smbSigning,hmacSha256Key)
+                if(firstTime):
+                    tempRPCData = GetByteRange(addr returnValue[0],84,cast[int](returnSize-1))
+                else:
+                    tempRPCData = GetByteRange(addr returnValue[0],108,cast[int](returnSize-1))
+                firstTime = false
+                length = [byte 0xb8, 0x10, 0x00, 0x00]
+                fragmentedEnumList.add(tempRPCData)
+            serviceStruct[].StartType = (cast[ptr uint32](addr fragmentedEnumList[4]))[]
+            # var errorControl:uint32 = (cast[ptr uint32](addr rpcData[8]))[]
+            # var dwTagId:uint32  =  (cast[ptr uint32](addr rpcData[20]))[]
+            var tempOffset:int = 0;
+            var realOffset:int = 36;
+            serviceStruct[].BinaryPath = UnmarshallStringForRPC(addr fragmentedEnumList[realOffset],addr tempOffset)
+            realOffset+=tempOffset
+            serviceStruct[].LoadOrderGroup = UnmarshallStringForRPC(addr fragmentedEnumList[realOffset],addr tempOffset)
+            realOffset+=tempOffset
+            serviceStruct[].Dependencies = UnmarshallStringForRPC(addr fragmentedEnumList[realOffset],addr tempOffset)
+            realOffset+=tempOffset
+            serviceStruct[].ServiceStartName = UnmarshallStringForRPC(addr fragmentedEnumList[realOffset],addr tempOffset)
             return true
         else:
             return false
@@ -652,10 +665,8 @@ proc ChangeServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: 
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr changeServiceConfigWData[0],changeServiceConfigWData.len)
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
@@ -687,10 +698,8 @@ proc StartServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr arr
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr startServiceWData,sizeof(StartServiceWData))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
@@ -760,10 +769,8 @@ proc CloseServiceHandleRPC*(socket: net.Socket, messageID:ptr uint64, treeID: pt
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
         copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr closeServiceHandleData,sizeof(CloseServiceHandleData))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
@@ -791,10 +798,8 @@ proc SMB2Close*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,by
         var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SMB2CloseData))
         copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2CloseData,sizeof(SMB2CloseData))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2CloseData, sizeof(SMB2CloseData))
@@ -819,10 +824,8 @@ proc TreeDisconnectRequest*(socket: net.Socket, messageID:ptr uint64, treeID: pt
         var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(TreeDisconnectData))
         copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr treeDisconnectData,sizeof(TreeDisconnectData))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr treeDisconnectData, sizeof(TreeDisconnectData))
@@ -846,10 +849,8 @@ proc SessionLogoffRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr
         var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SessionLogoffData))
         copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
         copyMem(addr smb2Sign[sizeof(SMB2Header)],addr sessionLogoffData,sizeof(SessionLogoffData))
-        var calculatedHash:string = $sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        var calculatedHashAsByteArray:seq[byte] = HexStringToByteArray(calculatedHash,32)
-        for i in countup(0,15):
-            smb2Header.Signature[i] = calculatedHashAsByteArray[i]
+        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr sessionLogoffData, sizeof(SessionLogoffData))

@@ -169,7 +169,8 @@ proc UnmarshallStringForRPC*(bufferArray: ptr byte, offset: ptr int): string =
         var modValue:int = (cast[int](actualCount)*2) mod 4
         var paddingLen:int = (if modValue == 0: 0 else: 4-modValue)
         offset[] = paddingLen + 12 + 2*cast[int](actualCount)
-        var tempWideString = newWideCString(tempSeq.len)
-        for i in countup(0,tempSeq.len-1):
+        var stringLength:int = tempSeq.len
+        var tempWideString:WideCStringObj = newWideCString(stringLength)
+        for i in countup(0,stringLength-1):
             tempWideString[i] = cast[Utf16Char](tempSeq[i])
         return $tempWideString

