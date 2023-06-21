@@ -4,9 +4,10 @@ import ptr_math
 import std/strutils
 import std/md5
 
-proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte],sendFlag:bool = true):(array[5096,byte],uint32) =
-    var returnBytes:array[5096,byte]
-    var tempBytes:array[5096,byte]
+proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte],sendFlag:bool = true):(seq[byte],uint32) =
+    var returnBytes:seq[byte] = newSeq[byte](5096)
+    var tempBytes:seq[byte] = newSeq[byte](5096)
+
     var received:uint32 = 0
     var index:int = 0
     var expectedSize:uint32 = 4
@@ -170,7 +171,7 @@ proc UnmarshallStringForRPC*(bufferArray: ptr byte, offset: ptr int): string =
         var paddingLen:int = (if modValue == 0: 0 else: 4-modValue)
         offset[] = paddingLen + 12 + 2*cast[int](actualCount)
         var stringLength:int = tempSeq.len
-        var tempWideString:WideCStringObj = newWideCString(stringLength)
+        var tempWideString:WideCString = newWideCString(stringLength)
         for i in countup(0,stringLength-1):
             tempWideString[i] = cast[Utf16Char](tempSeq[i])
         return $tempWideString

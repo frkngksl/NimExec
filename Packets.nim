@@ -19,7 +19,7 @@ proc NegotiateSMB2*(socket: net.Socket,messageID:ptr uint64,treeID:ptr array[4,b
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + sizeof(SMB2NegotiateRequest))
     var dataLength:int = sizeof(SMB2Header)+sizeof(SMB2NegotiateRequest)+sizeof(NetBiosHeader)
     var sendData:seq[byte]=newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
@@ -47,16 +47,16 @@ proc NegotiateSMB2*(socket: net.Socket,messageID:ptr uint64,treeID:ptr array[4,b
         return false
 
 
-proc NTLMSSPAuth*(socket: net.Socket,options:ptr OPTIONS,smbNegotiateFlags:seq[byte],smbSessionKeyLengthBytes:seq[byte], messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte],returnValue:var array[5096,byte], returnSize:var uint32, smbSigning:bool, hmacSha256Key: ptr array[16,byte]):bool =
+proc NTLMSSPAuth*(socket: net.Socket,options:ptr OPTIONS,smbNegotiateFlags:seq[byte],smbSessionKeyLengthBytes:seq[byte], messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte],returnValue: seq[byte], returnSize: uint32, smbSigning:bool, hmacSha256Key: ptr array[16,byte]):bool =
     var patternBytes:array[8,byte] = [byte 0x4E,0x54,0x4C,0x4D,0x53,0x53,0x50,0x00]
     messageID[] = messageID[]+1
-    var seperatorIndex:int = FindIndex(addr returnValue[0],cast[int](returnSize),addr patternBytes[0],8)
+    var seperatorIndex:int = FindIndex(unsafeAddr returnValue[0],cast[int](returnSize),addr patternBytes[0],8)
     var smbDomainLength:int = cast[int]((returnValue[seperatorIndex+12] shl 0) or (returnValue[seperatorIndex+12+1] shl 8))
     var smbTargetLength:int = cast[int]((returnValue[seperatorIndex+40] shl 0) or (returnValue[seperatorIndex+40+1] shl 8))
-    copyMem(addr (sessionID[])[0],addr returnValue[44],8)
+    copyMem(addr (sessionID[])[0],unsafeAddr returnValue[44],8)
 
-    var smbNTLMChallenge:seq[byte] = GetByteRange(addr returnValue[0],seperatorIndex+24,seperatorIndex+31)
-    var smbTargetDetails:seq[byte] = GetByteRange(addr returnValue[0],seperatorIndex+56+smbDomainLength,seperatorIndex+55+smbDomainLength+smbTargetLength) # Checked
+    var smbNTLMChallenge:seq[byte] = GetByteRange(unsafeAddr returnValue[0],seperatorIndex+24,seperatorIndex+31)
+    var smbTargetDetails:seq[byte] = GetByteRange(unsafeAddr returnValue[0],seperatorIndex+56+smbDomainLength,seperatorIndex+55+smbDomainLength+smbTargetLength) # Checked
     var smbTargetTimeBytes:seq[byte] = GetByteRange(addr smbTargetDetails[0],smbTargetDetails.len-12,smbTargetDetails.len-5)
     var hashBytes:seq[byte] = HexStringToByteArray(options.Hash,options.Hash.len)
     var authHostnameInWchars:WideCStringObj = newWideCString(getHostname())
@@ -152,7 +152,7 @@ proc NTLMSSPAuth*(socket: net.Socket,options:ptr OPTIONS,smbNegotiateFlags:seq[b
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + smb2SessionSetup.len)
     var dataLength:int = sizeof(SMB2Header) + smb2SessionSetup.len + sizeof(NetBiosHeader)
     var sendData:seq[byte]= newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
@@ -173,7 +173,7 @@ proc NTLMAuthentication*(socket: net.Socket,options:ptr OPTIONS,smbNegotiateFlag
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + sizeof(NTLMSSPNegotiate) + sizeof(SessionSetupHeader))
     var dataLength:int = sizeof(SMB2Header) + sizeof(NTLMSSPNegotiate) + sizeof(SessionSetupHeader)+sizeof(NetBiosHeader)
     var sendData:seq[byte]= newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
@@ -210,7 +210,7 @@ proc TreeConnectRequest*(socket: net.Socket,options:ptr OPTIONS, messageID:ptr u
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + smb2Data.len)
     var dataLength:int = sizeof(SMB2Header) + smb2Data.len + sizeof(NetBiosHeader)
     var sendData:seq[byte]= newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
     copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
@@ -235,7 +235,7 @@ proc CreateRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + smb2Data.len)
     var dataLength:int = sizeof(SMB2Header) + smb2Data.len + sizeof(NetBiosHeader)
     var sendData:seq[byte]= newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -267,7 +267,7 @@ proc RPCBindRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + sizeof(RPCBind) + sizeof(SMB2WriteHeader))
     var dataLength:int = sizeof(SMB2Header) +  sizeof(RPCBind) + sizeof(SMB2WriteHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte]= newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -298,7 +298,7 @@ proc ReadRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + sizeof(SMB2ReadHeader))
     var dataLength:int = sizeof(SMB2Header) +  sizeof(SMB2ReadHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -328,7 +328,7 @@ proc OpenSCManagerWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr ar
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + openSCManagerWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
     var dataLength:int = sizeof(SMB2Header) + openSCManagerWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -366,14 +366,14 @@ proc OpenSCManagerWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr ar
         return false
     return true
 
-proc ReadFragment(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], length: array[4,byte], smbSigning:bool, hmacSha256Key: ptr byte):(array[5096,byte],uint32) =
+proc ReadFragment(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], length: array[4,byte], smbSigning:bool, hmacSha256Key: ptr byte):(seq[byte],uint32) =
     sleep(2000);
     var smb2Header:SMB2Header = SMB2HeaderFiller(8,1,1,messageID[],treeID[],sessionID[])
     var smb2ReadHeader:SMB2ReadHeader = SMB2ReadRequest(fileID[],length)
     var netbiosHeader:NetBiosHeader = NetBiosFiller(sizeof(SMB2Header) + sizeof(SMB2ReadHeader))
     var dataLength:int = sizeof(SMB2Header) +  sizeof(SMB2ReadHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -397,7 +397,7 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(EnumServicesStatusWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
     var dataLength:int = sizeof(SMB2Header) + sizeof(EnumServicesStatusWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -414,6 +414,9 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
     copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr enumServicesStatusWData, sizeof(EnumServicesStatusWData))
     (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+    while(returnValue[12] == 0x03 and returnValue[13] == 0x01 and returnValue[14] == 0x00 and returnValue[15] == 0x00):
+        sleep(5000);
+        (returnValue,returnSize) = SendAndReceiveFromSocket(socket,nil, false)
     if((cast[ptr uint32](addr returnValue[144]))[] != 0):
         var servicesBufferSize:uint32 = (cast[ptr uint32](addr returnValue[144]))[]
         messageID[] = messageID[]+1
@@ -485,6 +488,7 @@ proc EnumServicesStatusWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
                 serviceList[].add(serviceInfoStruct)
                 offset+=36
                 tempIndex+=1
+            callID[] = callID[]+1
             return true
         else:
             # If you encounter such a case, please send a wireshark capture.
@@ -502,7 +506,7 @@ proc OpenServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr arra
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + openServiceWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
     var dataLength:int = sizeof(SMB2Header) + openServiceWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -546,7 +550,7 @@ proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(QueryServiceConfigWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
     var dataLength:int = sizeof(SMB2Header) + sizeof(QueryServiceConfigWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -648,15 +652,15 @@ proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
     else:
         return false   
     
-proc ChangeServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte], command: string, smbSigning:bool, hmacSha256Key: ptr byte):bool =
+proc ChangeServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte], serviceStartType:uint32, command: string, smbSigning:bool, hmacSha256Key: ptr byte):bool =
     var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
-    var changeServiceConfigWData:seq[byte] = ChangeServiceConfigWFiller(scServiceHandle, 0x00000003,command)
+    var changeServiceConfigWData:seq[byte] = ChangeServiceConfigWFiller(scServiceHandle, serviceStartType,command)
     var rpcHeader:RPCHeader = RPCHeaderFiller(changeServiceConfigWData.len,callID,[byte 0x0b, 0x00])
     var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,changeServiceConfigWData.len+sizeof(RPCHeader))
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + changeServiceConfigWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
     var dataLength:int = sizeof(SMB2Header) + changeServiceConfigWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -689,7 +693,7 @@ proc StartServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr arr
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(StartServiceWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
     var dataLength:int = sizeof(SMB2Header) + sizeof(StartServiceWData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -760,7 +764,7 @@ proc CloseServiceHandleRPC*(socket: net.Socket, messageID:ptr uint64, treeID: pt
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(CloseServiceHandleData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
     var dataLength:int = sizeof(SMB2Header) + sizeof(CloseServiceHandleData) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -791,7 +795,7 @@ proc SMB2Close*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,by
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(SMB2CloseData))
     var dataLength:int = sizeof(SMB2Header) + sizeof(SMB2CloseData) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -817,7 +821,7 @@ proc TreeDisconnectRequest*(socket: net.Socket, messageID:ptr uint64, treeID: pt
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(TreeDisconnectData))
     var dataLength:int = sizeof(SMB2Header) + sizeof(TreeDisconnectData) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
@@ -842,7 +846,7 @@ proc SessionLogoffRequest*(socket: net.Socket, messageID:ptr uint64, treeID: ptr
     var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + sizeof(SessionLogoffData))
     var dataLength:int = sizeof(SMB2Header) + sizeof(SessionLogoffData) + sizeof(NetBiosHeader)
     var sendData:seq[byte] = newSeq[byte](dataLength)
-    var returnValue:array[5096,byte]
+    var returnValue:seq[byte]
     var returnSize:uint32
     if(smbSigning):
         smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]

@@ -49,15 +49,16 @@ type
         OutputUsername*:string
     
     ServiceInfo* {.bycopy,packed.} = object
-        ServiceType*:uint32
-        ServiceState*:uint32
         StartType*:uint32
-        ServiceName*:string
-        DisplayName*:string
         BinaryPath*:string
-        LoadOrderGroup*:string
         Dependencies*:string
         ServiceStartName*:string
+        ServiceDisplayName*:string
+        LoadOrderGroup*:string
+        ServiceName*:string
+        DisplayName*:string
+        ServiceType*:uint32
+        ServiceState*:uint32
 
     NetBiosHeader* {.bycopy,packed.} = object
         MessageType*: byte
@@ -283,10 +284,3 @@ type
     SessionLogoffData* {.bycopy,packed.} = object
         StructureSize*: array[2,byte]
         Reserved*: array[2,byte]
-        
-
-
-
-
-
-
