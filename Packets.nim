@@ -6,6 +6,7 @@ import std/endians
 import std/strutils
 import std/sysrand
 import std/os
+import std/math
 import nimcrypto
 import Structs
 import AuxFunctions
@@ -653,36 +654,161 @@ proc QueryServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: p
         return false   
     
 proc ChangeServiceConfigWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte], serviceStartType:uint32, command: string, smbSigning:bool, hmacSha256Key: ptr byte):bool =
-    var smb2Header:SMB2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+    var smb2Header:SMB2Header
     var changeServiceConfigWData:seq[byte] = ChangeServiceConfigWFiller(scServiceHandle, serviceStartType,command)
-    var rpcHeader:RPCHeader = RPCHeaderFiller(changeServiceConfigWData.len,callID,[byte 0x0b, 0x00])
-    var smb2IoctlHeader:SMB2IoctlHeader = SMB2IoctlRequest(fileID,changeServiceConfigWData.len+sizeof(RPCHeader))
-    var netbiosHeader:NetBiosHeader = NetBiosFiller( sizeof(SMB2Header) + changeServiceConfigWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
-    var dataLength:int = sizeof(SMB2Header) + changeServiceConfigWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
-    var sendData:seq[byte] = newSeq[byte](dataLength)
+    var rpcHeader:RPCHeader
+    var netbiosHeader:NetBiosHeader 
+    var dataLength:int 
+    var rpcLimit:int = 4256
+    var sendData:seq[byte]
+    var indexTracker:int = 0
+    var rpcDataLength:int = changeServiceConfigWData.len 
+    var allocLengthHolder:int = 0
     var returnValue:seq[byte]
     var returnSize:uint32
-    if(smbSigning):
-        smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
-        var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + changeServiceConfigWData.len)
-        copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
-        copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
-        copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
-        copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr changeServiceConfigWData[0],changeServiceConfigWData.len)
-        var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
-        copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
-    copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
-    copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
-    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
-    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
-    copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr changeServiceConfigWData[0], changeServiceConfigWData.len)
-    (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
-    if((cast[ptr uint32](addr returnValue[returnSize-4]))[] == 0):
-        messageID[] = messageID[]+1
-        callID[] = callID[]+1
-        return true
+    if(rpcDataLength > rpcLimit):
+        var smbSplitStage:int
+        var currentStage:int
+        var splitStageFinal:int = ceilDiv(rpcDataLength, rpcLimit)
+        var partOfData:seq[byte] = GetByteRange(addr changeServiceConfigWData[0], 0, rpcLimit - 1)
+        var packetWriteLength:uint16 = 24 + cast[uint16](partOfData.len)
+        smb2Header = SMB2HeaderFiller(0x09,1,1,messageID[],treeID[],sessionID[])
+        indexTracker = rpcLimit
+        rpcHeader = RPCHeaderFiller(0,callID,[byte 0x0b, 0x00])
+        rpcHeader.PacketFlags = 0x01
+        rpcHeader.AllocHint = [(cast[ptr byte](addr rpcDataLength))[],(cast[ptr byte](addr(rpcDataLength)) + 1)[],(cast[ptr byte](addr(rpcDataLength)) + 2)[] ,(cast[ptr byte](addr(rpcDataLength)) + 3)[]  ] 
+        rpcHeader.FragLength = [(cast[ptr byte](addr packetWriteLength))[],(cast[ptr byte](addr(packetWriteLength)) + 1)[]  ]
+        var smb2WriteHeader:SMB2WriteHeader = SMB2WriteRequest(partOfData.len+sizeof(RPCHeader),fileID)
+        netbiosHeader = NetBiosFiller( sizeof(SMB2Header) + partOfData.len + sizeof(SMB2WriteHeader) + sizeof(RPCHeader))
+        dataLength = sizeof(SMB2Header) + partOfData.len + sizeof(SMB2WriteHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+        sendData = newSeq[byte](dataLength)
+        if(smbSigning):
+            smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
+            var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SMB2WriteHeader) + sizeof(RPCHeader) + partOfData.len)
+            copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
+            copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2WriteHeader,sizeof(SMB2WriteHeader))
+            copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2WriteHeader)],addr rpcHeader, sizeof(RPCHeader))
+            copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2WriteHeader) + sizeof(RPCHeader)],addr partOfData[0],partOfData.len)
+            var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+            copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
+        copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+        copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2WriteHeader, sizeof(SMB2WriteHeader))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2WriteHeader)],addr rpcHeader, sizeof(RPCHeader))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2WriteHeader)+sizeof(RPCHeader)],addr partOfData[0], partOfData.len)
+        (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+        messageID[]=messageID[]+1
+        if((cast[ptr uint32](addr returnValue[12]))[] != 0):
+            return false
+        if(splitStageFinal <= 2):
+            currentStage = FINAL_FRAGMENT
+        else:
+            currentStage = MID_FRAGMENT
+            smbSplitStage = 2
+        while(true):
+            if (currentStage == FINAL_FRAGMENT):
+                smb2Header = SMB2HeaderFiller(0x09,1,1,messageID[],treeID[],sessionID[])
+                partOfData = GetByteRange(addr changeServiceConfigWData[0], indexTracker, changeServiceConfigWData.len - 1)
+                rpcHeader = RPCHeaderFiller(0,callID,[byte 0x0b, 0x00])
+                rpcHeader.PacketFlags = 0x02
+                allocLengthHolder = partOfData.len
+                packetWriteLength = 24 + cast[uint16](partOfData.len)
+                rpcHeader.AllocHint = [(cast[ptr byte](addr allocLengthHolder))[],(cast[ptr byte](addr(allocLengthHolder)) + 1)[],(cast[ptr byte](addr(allocLengthHolder)) + 2)[] ,(cast[ptr byte](addr(allocLengthHolder)) + 3)[]  ] 
+                rpcHeader.FragLength = [(cast[ptr byte](addr packetWriteLength))[],(cast[ptr byte](addr(packetWriteLength)) + 1)[]  ]
+                smb2WriteHeader = SMB2WriteRequest(partOfData.len+sizeof(RPCHeader),fileID)
+                netbiosHeader = NetBiosFiller( sizeof(SMB2Header) + partOfData.len + sizeof(SMB2WriteHeader) + sizeof(RPCHeader))
+                dataLength = sizeof(SMB2Header) + partOfData.len + sizeof(SMB2WriteHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+                sendData = newSeq[byte](dataLength)
+                if(smbSigning):
+                    smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
+                    var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SMB2WriteHeader) + sizeof(RPCHeader) + partOfData.len)
+                    copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
+                    copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2WriteHeader,sizeof(SMB2WriteHeader))
+                    copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2WriteHeader)],addr rpcHeader, sizeof(RPCHeader))
+                    copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2WriteHeader) + sizeof(RPCHeader)],addr partOfData[0],partOfData.len)
+                    var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+                    copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
+                copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+                copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+                copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2WriteHeader, sizeof(SMB2WriteHeader))
+                copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2WriteHeader)],addr rpcHeader, sizeof(RPCHeader))
+                copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2WriteHeader)+sizeof(RPCHeader)],addr partOfData[0], partOfData.len)
+                (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+                messageID[]=messageID[]+1
+                if((cast[ptr uint32](addr returnValue[12]))[] != 0):
+                    return false
+                (returnValue, returnSize) = ReadFragment(socket,messageID,treeID,sessionID,fileID,[byte 0xff, 0x00, 0x00, 0x00],smbSigning,hmacSha256Key)
+                callID[]=callID[]+1
+                if((cast[ptr uint32](addr returnValue[returnSize - 4]))[] == 0):
+                    return true
+                else:
+                    return false
+            elif(currentStage == MID_FRAGMENT):
+                smbSplitStage+=1
+                smb2Header = SMB2HeaderFiller(0x09,1,1,messageID[],treeID[],sessionID[])
+                partOfData = GetByteRange(addr changeServiceConfigWData[0], indexTracker, indexTracker + rpcLimit - 1)
+                indexTracker+=rpcLimit
+                rpcHeader = RPCHeaderFiller(0,callID,[byte 0x0b, 0x00])
+                rpcHeader.PacketFlags = 0x00
+                packetWriteLength = 24 + cast[uint16](partOfData.len)
+                allocLengthHolder = rpcDataLength - indexTracker + rpcLimit
+                rpcHeader.AllocHint = [(cast[ptr byte](addr allocLengthHolder))[],(cast[ptr byte](addr(allocLengthHolder)) + 1)[],(cast[ptr byte](addr(allocLengthHolder)) + 2)[] ,(cast[ptr byte](addr(allocLengthHolder)) + 3)[]  ] 
+                rpcHeader.FragLength = [(cast[ptr byte](addr packetWriteLength))[],(cast[ptr byte](addr(packetWriteLength)) + 1)[]  ]
+                smb2WriteHeader = SMB2WriteRequest(partOfData.len+sizeof(RPCHeader),fileID)
+                netbiosHeader = NetBiosFiller( sizeof(SMB2Header) + partOfData.len + sizeof(SMB2WriteHeader) + sizeof(RPCHeader))
+                dataLength = sizeof(SMB2Header) + partOfData.len + sizeof(SMB2WriteHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+                sendData = newSeq[byte](dataLength)
+                if(smbSigning):
+                    smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
+                    var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SMB2WriteHeader) + sizeof(RPCHeader) + partOfData.len)
+                    copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
+                    copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2WriteHeader,sizeof(SMB2WriteHeader))
+                    copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2WriteHeader)],addr rpcHeader, sizeof(RPCHeader))
+                    copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2WriteHeader) + sizeof(RPCHeader)],addr partOfData[0],partOfData.len)
+                    var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+                    copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
+                copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+                copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+                copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2WriteHeader, sizeof(SMB2WriteHeader))
+                copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2WriteHeader)],addr rpcHeader, sizeof(RPCHeader))
+                copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2WriteHeader)+sizeof(RPCHeader)],addr partOfData[0], partOfData.len)
+                (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+                messageID[]=messageID[]+1
+                if((cast[ptr uint32](addr returnValue[12]))[] != 0):
+                    return false
+                if(smbSplitStage >= splitStageFinal):
+                    currentStage = FINAL_FRAGMENT
+            else:
+                return false
     else:
-        return false
+        smb2Header = SMB2HeaderFiller(0x0b,1,1,messageID[],treeID[],sessionID[])
+        rpcHeader = RPCHeaderFiller(changeServiceConfigWData.len,callID,[byte 0x0b, 0x00])
+        var smb2IoctlHeader:SMB2IoctlHeader  = SMB2IoctlRequest(fileID,changeServiceConfigWData.len+sizeof(RPCHeader))
+        netbiosHeader = NetBiosFiller( sizeof(SMB2Header) + changeServiceConfigWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader))
+        dataLength = sizeof(SMB2Header) + changeServiceConfigWData.len + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + sizeof(NetBiosHeader)
+        sendData = newSeq[byte](dataLength)
+
+        if(smbSigning):
+            smb2Header.Flags = [byte 0x08, 0x00, 0x00, 0x00]
+            var smb2Sign:seq[byte] = newSeq[byte](sizeof(SMB2Header)+sizeof(SMB2IoctlHeader) + sizeof(RPCHeader) + changeServiceConfigWData.len)
+            copyMem(addr smb2Sign[0],addr smb2Header, sizeof(SMB2Header))
+            copyMem(addr smb2Sign[sizeof(SMB2Header)],addr smb2IoctlHeader,sizeof(SMB2IoctlHeader))
+            copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+            copyMem(addr smb2Sign[sizeof(SMB2Header) + sizeof(SMB2IoctlHeader) + sizeof(RPCHeader)],addr changeServiceConfigWData[0],changeServiceConfigWData.len)
+            var calculatedHash = sha256.hmac(hmacSha256Key,16,addr smb2Sign[0],cast[uint](smb2Sign.len))
+            copyMem(addr smb2Header.Signature[0],addr calculatedHash.data[0],16)
+        copyMem(addr sendData[0],addr netbiosHeader, sizeof(NetBiosHeader))
+        copyMem(addr sendData[sizeof(NetBiosHeader)],addr smb2Header, sizeof(SMB2Header))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)],addr smb2IoctlHeader, sizeof(SMB2IoctlHeader))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)],addr rpcHeader, sizeof(RPCHeader))
+        copyMem(addr sendData[sizeof(SMB2Header)+sizeof(NetBiosHeader)+sizeof(SMB2IoctlHeader)+sizeof(RPCHeader)],addr changeServiceConfigWData[0], changeServiceConfigWData.len)
+        (returnValue,returnSize) = SendAndReceiveFromSocket(socket,addr sendData)
+        if((cast[ptr uint32](addr returnValue[returnSize-4]))[] == 0):
+            messageID[] = messageID[]+1
+            callID[] = callID[]+1
+            return true
+        else:
+            return false
 
 
 proc StartServiceWRPC*(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scServiceHandle: ptr array[20,byte],smbSigning:bool, hmacSha256Key: ptr byte):bool =

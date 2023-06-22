@@ -37,6 +37,9 @@ const
     SERVICE_DEMAND_START* = 0x00000003
     SERVICE_DISABLED* = 0x00000004
 
+    FINAL_FRAGMENT* = 1
+    MID_FRAGMENT* = 0
+
 type
     OPTIONS* {.bycopy,packed.} = object
         IsVerbose*: bool
