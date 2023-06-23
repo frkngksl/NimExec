@@ -1,5 +1,5 @@
 # NimExec
-Basically, NimExec is a fileless command execution for lateral movement tool that uses The Service Control Manager Remote Protocol (MS-SCMR). It changes the binary path of a random or given service run by LocalSystem to execute the given command on the target and restores it later via hand-crafted RPC packets instead of WinAPI calls. It sends these packages over SMB2 and the svcctl named pipe.
+Basically, NimExec is a fileless remote command execution tool that uses The Service Control Manager Remote Protocol (MS-SCMR). It changes the binary path of a random or given service run by LocalSystem to execute the given command on the target and restores it later via hand-crafted RPC packets instead of WinAPI calls. It sends these packages over SMB2 and the svcctl named pipe.
 
 NimExec needs an NTLM hash to authenticate to the target machine and then completes this authentication process with the NTLM Authentication method over hand-crafted packages.
 
