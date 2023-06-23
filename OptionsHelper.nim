@@ -25,9 +25,9 @@ proc PrintBanner*():void =
 proc PrintHelp*():void =
     var optionsString = """
 
-    -v | --verbose                          Enable a more verbose output.
+    -v | --verbose                          Enable more verbose output.
     -u | --username <Username>              Username for NTLM Authentication.* 
-    -h | --hash <NTLM Hash>                 NTLM passwword hash for NTLM Authentication.*
+    -h | --hash <NTLM Hash>                 NTLM password hash for NTLM Authentication.*
     -t | --target <Target>                  Lateral movement target.*
     -c | --command <Command>                Command to execute.*
     -d | --domain <Domain>                  Domain name for NTLM Authentication.
@@ -55,32 +55,32 @@ proc ParseArgs*(argc:int, argv:seq[string], optionsStruct:ptr OPTIONS):bool =
             quit(0)
         elif(argv[i] == "-u" or argv[i] == "--username"):
             i+=1
-            if(i>argc):
+            if(i>=argc):
                 return false
             optionsStruct.Username = argv[i]
         elif(argv[i] == "-h" or argv[i] == "--hash"):
             i+=1
-            if(i>argc):
+            if(i>=argc):
                 return false
             optionsStruct.Hash = argv[i]
         elif(argv[i] == "-d" or argv[i] == "--domain"):
             i+=1
-            if(i>argc):
+            if(i>=argc):
                 return false
             optionsStruct.Domain = argv[i]
         elif(argv[i] == "-t" or argv[i] == "--target"):
             i+=1
-            if(i>argc):
+            if(i>=argc):
                 return false
             optionsStruct.Target = argv[i]
         elif(argv[i] == "-s" or argv[i] == "--service"):
             i+=1
-            if(i>argc):
+            if(i>=argc):
                 return false
             optionsStruct.Service = argv[i]
         elif(argv[i] == "-c" or argv[i] == "--command"):
             i+=1
-            if(i>argc):
+            if(i>=argc):
                 return false
             optionsStruct.Command = argv[i]
         elif(i != 0):

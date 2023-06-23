@@ -66,6 +66,7 @@ proc StartNimExec():void =
     var selectedServiceInfo:ServiceInfo
     PrintBanner()
     if(not ParseArgs(paramCount(),commandLineParams(),addr optionsStruct)):
+        echo "[!] Error unknown or missing parameters!"
         PrintHelp() 
         quit(0)
     

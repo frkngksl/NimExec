@@ -251,7 +251,7 @@ proc EnumServicesStatusWFiller*(scManagerHandle: ptr array[20,byte], bufferSize:
     var returnStruct:EnumServicesStatusWData
     var bufferArray:array[4,byte] = [(cast[ptr byte](unsafeAddr bufferSize))[],(cast[ptr byte](unsafeAddr(bufferSize)) + 1)[],(cast[ptr byte](unsafeAddr(bufferSize)) + 2)[],(cast[ptr byte](unsafeAddr(bufferSize)) + 3)[] ]
     returnStruct.ContextHandle = scManagerHandle[]
-    returnStruct.ServiceType = [byte 0x10, 0x00, 0x00, 0x00]
+    returnStruct.ServiceType = [byte 0x30, 0x00, 0x00, 0x00]
     returnStruct.ServiceState = [byte 0x03, 0x00, 0x00, 0x00]
     returnStruct.BufferSize = bufferArray
     returnStruct.ResumeIndex = [byte 0x00, 0x00, 0x00, 0x00]
