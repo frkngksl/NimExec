@@ -109,7 +109,7 @@ proc StartNimExec():void =
         echo "[!] Problem in RPC Bind Request!"
         quit(0)
     if(optionsStruct.IsVerbose):
-        echo "[+] Binded to the RPC Interface!"
+        echo "[+] Bound to the RPC Interface!"
     if(not ReadRequest(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, smbSigning,addr hmacSha256Key[0])):
         echo "[!] Problem in RPC Bind Acknowledge!"
         quit(0)
