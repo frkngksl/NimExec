@@ -1,24 +1,24 @@
 # NimExec
-Basically, NimExec is a fileless lateral movement tool that uses The Service Control Manager Remote Protocol (MS-SCMR). It changes the binary path of a random or given service run by LocalSystem to execute the given command on the target and restores it later via hand-crafted RPC packets instead of WinAPI calls. It sends these packages over SMB2 and the svcctl named pipe.
+Basically, NimExec is a fileless command execution for lateral movement tool that uses The Service Control Manager Remote Protocol (MS-SCMR). It changes the binary path of a random or given service run by LocalSystem to execute the given command on the target and restores it later via hand-crafted RPC packets instead of WinAPI calls. It sends these packages over SMB2 and the svcctl named pipe.
 
 NimExec needs an NTLM hash to authenticate to the target machine and then completes this authentication process with the NTLM Authentication method over hand-crafted packages.
 
-Since all required network packages are manually crafted and no operating system specific functions are used, NimExec can be used in different operating systems by using Nim's cross compilability support.
+Since all required network packages are manually crafted and no operating system-specific functions are used, NimExec can be used in different operating systems by using Nim's cross-compilability support.
 
-This project was inspired by [Julio's SharpNoPSExec](https://github.com/juliourena/SharpNoPSExec) tool. You can think that NimExec is Cross Compilable and built-in Pass the Hash supported version of SharpNoPSExec. Also, I learnt the required network packet structures from [Kevin Robertson's Invoke-SMBExec Script](https://github.com/Kevin-Robertson/Invoke-TheHash/blob/master/Invoke-SMBExec.ps1).
+This project was inspired by [Julio's SharpNoPSExec](https://github.com/juliourena/SharpNoPSExec) tool. You can think that NimExec is Cross Compilable and built-in Pass the Hash supported version of SharpNoPSExec. Also, I learned the required network packet structures from [Kevin Robertson's Invoke-SMBExec Script](https://github.com/Kevin-Robertson/Invoke-TheHash/blob/master/Invoke-SMBExec.ps1).
 
 
 # Compilation
 ```
-
+nim c -d:release --gc:markAndSweep -o:NimExec.exe Main.nim
 ```
 
-Above command uses a different Garbage Collector because the default garbage collector in Nim is throwing some SIGSEGV errors during service searching process.
+The above command uses a different Garbage Collector because the default garbage collector in Nim is throwing some SIGSEGV errors during the service searching process.
 
 Also, you can install the required Nim modules via Nimble with the following command:
 
 ```
-
+nimble install ptr_math nimcrypto hostname
 ```
 
 # Usage
