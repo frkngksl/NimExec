@@ -1,4 +1,6 @@
 import Structs
+import AuxFunctions
+
 proc PrintBanner*():void = 
     var banner = """
  
@@ -27,7 +29,8 @@ proc PrintHelp*():void =
 
     -v | --verbose                          Enable more verbose output.
     -u | --username <Username>              Username for NTLM Authentication.* 
-    -h | --hash <NTLM Hash>                 NTLM password hash for NTLM Authentication.*
+    -h | --hash <NTLM Hash>                 NTLM password hash for NTLM Authentication.**
+    -p | --password <Password>              Plaintext password.**
     -t | --target <Target>                  Lateral movement target.*
     -c | --command <Command>                Command to execute.*
     -d | --domain <Domain>                  Domain name for NTLM Authentication.
@@ -58,6 +61,11 @@ proc ParseArgs*(argc:int, argv:seq[string], optionsStruct:ptr OPTIONS):bool =
             if(i>=argc):
                 return false
             optionsStruct.Username = argv[i]
+        elif(argv[i] == "-p" or argv[i] == "--password"):
+            i+=1
+            if(i>=argc):
+                return false
+            optionsStruct.Hash = NtlmCalculator(argv[i])
         elif(argv[i] == "-h" or argv[i] == "--hash"):
             i+=1
             if(i>=argc):

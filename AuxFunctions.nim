@@ -4,6 +4,180 @@ import ptr_math
 import std/strutils
 import std/md5
 
+
+proc NtlmCalculator*(plainTextPass:string):string =
+    var INIT_A:uint32 = cast[uint32](0x67452301)
+    var INIT_B:uint32 = cast[uint32](0xefcdab89)
+    var INIT_C:uint32 = cast[uint32](0x98badcfe)
+    var INIT_D:uint32 = cast[uint32](0x10325476)
+    var SQRT_2:uint32 = cast[uint32](0x5a827999)
+    var SQRT_3:uint32 = cast[uint32](0x6ed9eba1)
+    var itoa16:array[16, char] =  [char '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F']
+    var nt_buffer:array[16, uint32]
+    var output:array[4, uint32]
+    var hex_format:array[32, char]
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Prepare the string for hash calculation
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    var i:int = 0
+    var length:int = plainTextPass.len
+    var length2:int = length - (length mod 2)
+    var threshold:int =  toInt(length2/2)
+    # The length of key need to be <= 27
+    while(i < threshold):
+        nt_buffer[i] = cast[uint32](plainTextPass[2 * i]) or (cast[uint32](plainTextPass[2 * i + 1]) shl 16)
+        i+=1
+
+    # padding
+    if (length mod 2 == 1):
+        nt_buffer[i] = cast[uint32](plainTextPass[length - 1]) or cast[uint32](0x800000)
+    else:
+        nt_buffer[i] = 0x80
+    
+    # put the length
+    nt_buffer[14] = cast[uint32](length) shl 4
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # NTLM hash calculation
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    var a:uint32 = INIT_A
+    var b:uint32 = INIT_B
+    var c:uint32 = INIT_C
+    var d:uint32 = INIT_D
+
+    # Round 1 
+    a += (d xor (b and (c xor d))) + nt_buffer[0]
+    a = (a shl 3) or (a shr 29)
+    d += (c xor (a and (b xor c))) + nt_buffer[1]
+    d = (d shl 7) or (d shr 25)
+    c += (b xor (d and (a xor b))) + nt_buffer[2]
+    c = (c shl 11) or (c shr 21)
+    b += (a xor (c and (d xor a))) + nt_buffer[3]
+    b = (b shl 19) or (b shr 13)
+
+    a += (d xor (b and (c xor d))) + nt_buffer[4]
+    a = (a shl 3) or (a shr 29)
+    d += (c xor (a and (b xor c))) + nt_buffer[5]
+    d = (d shl 7) or (d shr 25)
+    c += (b xor (d and (a xor b))) + nt_buffer[6]
+    c = (c shl 11) or (c shr 21)
+    b += (a xor (c and (d xor a))) + nt_buffer[7]
+    b = (b shl 19) or (b shr 13)
+
+    a += (d xor (b and (c xor d))) + nt_buffer[8]
+    a = (a shl 3) or (a shr 29)
+    d += (c xor (a and (b xor c))) + nt_buffer[9]
+    d = (d shl 7) or (d shr 25)
+    c += (b xor (d and (a xor b))) + nt_buffer[10]
+    c = (c shl 11) or (c shr 21)
+    b += (a xor (c and (d xor a))) + nt_buffer[11]
+    b = (b shl 19) or (b shr 13)
+
+    a += (d xor (b and (c xor d))) + nt_buffer[12]
+    a = (a shl 3) or (a shr 29)
+    d += (c xor (a and (b xor c))) + nt_buffer[13]
+    d = (d shl 7) or (d shr 25)
+    c += (b xor (d and (a xor b))) + nt_buffer[14]
+    c = (c shl 11) or (c shr 21)
+    b += (a xor (c and (d xor a))) + nt_buffer[15]
+    b = (b shl 19) or (b shr 13)
+
+    # Round 2 
+    a += ((b and (c or d)) or (c and d)) + nt_buffer[0] + SQRT_2 
+    a = (a shl 3) or (a shr 29)
+    d += ((a and (b or c)) or (b and c)) + nt_buffer[4] + SQRT_2 
+    d = (d shl 5) or (d shr 27)
+    c += ((d and (a or b)) or (a and b)) + nt_buffer[8] + SQRT_2 
+    c = (c shl 9) or (c shr 23)
+    b += ((c and (d or a)) or (d and a)) + nt_buffer[12] + SQRT_2 
+    b = (b shl 13) or (b shr 19)
+
+    a += ((b and (c or d)) or (c and d)) + nt_buffer[1] + SQRT_2 
+    a = (a shl 3) or (a shr 29)
+    d += ((a and (b or c)) or (b and c)) + nt_buffer[5] + SQRT_2 
+    d = (d shl 5) or (d shr 27)
+    c += ((d and (a or b)) or (a and b)) + nt_buffer[9] + SQRT_2 
+    c = (c shl 9) or (c shr 23)
+    b += ((c and (d or a)) or (d and a)) + nt_buffer[13] + SQRT_2 
+    b = (b shl 13) or (b shr 19)
+
+    a += ((b and (c or d)) or (c and d)) + nt_buffer[2] + SQRT_2 
+    a = (a shl 3) or (a shr 29)
+    d += ((a and (b or c)) or (b and c)) + nt_buffer[6] + SQRT_2 
+    d = (d shl 5) or (d shr 27)
+    c += ((d and (a or b)) or (a and b)) + nt_buffer[10] + SQRT_2 
+    c = (c shl 9) or (c shr 23)
+    b += ((c and (d or a)) or (d and a)) + nt_buffer[14] + SQRT_2 
+    b = (b shl 13) or (b shr 19)
+
+    a += ((b and (c or d)) or (c and d)) + nt_buffer[3] + SQRT_2 
+    a = (a shl 3) or (a shr 29)
+    d += ((a and (b or c)) or (b and c)) + nt_buffer[7] + SQRT_2 
+    d = (d shl 5) or (d shr 27)
+    c += ((d and (a or b)) or (a and b)) + nt_buffer[11] + SQRT_2 
+    c = (c shl 9) or (c shr 23)
+    b += ((c and (d or a)) or (d and a)) + nt_buffer[15] + SQRT_2 
+    b = (b shl 13) or (b shr 19)
+    
+    # Round 3 
+    a += (d xor c xor b) + nt_buffer[0] + SQRT_3
+    a = (a shl 3) or (a shr 29)
+    d += (c xor b xor a) + nt_buffer[8] + SQRT_3
+    d = (d shl 9) or (d shr 23)
+    c += (b xor a xor d) + nt_buffer[4] + SQRT_3
+    c = (c shl 11) or (c shr 21)
+    b += (a xor d xor c) + nt_buffer[12] + SQRT_3
+    b = (b shl 15) or (b shr 17)
+
+    a += (d xor c xor b) + nt_buffer[2] + SQRT_3
+    a = (a shl 3) or (a shr 29)
+    d += (c xor b xor a) + nt_buffer[10] + SQRT_3
+    d = (d shl 9) or (d shr 23)
+    c += (b xor a xor d) + nt_buffer[6] + SQRT_3
+    c = (c shl 11) or (c shr 21)
+    b += (a xor d xor c) + nt_buffer[14] + SQRT_3
+    b = (b shl 15) or (b shr 17)
+
+    a += (d xor c xor b) + nt_buffer[1] + SQRT_3
+    a = (a shl 3) or (a shr 29)
+    d += (c xor b xor a) + nt_buffer[9] + SQRT_3
+    d = (d shl 9) or (d shr 23)
+    c += (b xor a xor d) + nt_buffer[5] + SQRT_3
+    c = (c shl 11) or (c shr 21)
+    b += (a xor d xor c) + nt_buffer[13] + SQRT_3
+    b = (b shl 15) or (b shr 17)
+
+    a += (d xor c xor b) + nt_buffer[3] + SQRT_3
+    a = (a shl 3) or (a shr 29)
+    d += (c xor b xor a) + nt_buffer[11] + SQRT_3
+    d = (d shl 9) or (d shr 23)
+    c += (b xor a xor d) + nt_buffer[7] + SQRT_3
+    c = (c shl 11) or (c shr 21)
+    b += (a xor d xor c) + nt_buffer[15] + SQRT_3
+    b = (b shl 15) or (b shr 17)
+
+    output[0] = a + INIT_A
+    output[1] = b + INIT_B
+    output[2] = c + INIT_C
+    output[3] = d + INIT_D
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Convert the hash to hex (for being readable)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    for i in countup(0,3):
+        var j:int = 0
+        var n:uint32 = output[i]
+        # iterate the bytes of the integer
+        while(j < 4):
+            var convert:uint32 = cast[uint32](n mod 256)
+            hex_format[i * 8 + j * 2 + 1] = itoa16[convert mod 16]
+            convert-=(convert mod 16)
+            var test:int = toInt(cast[int](convert) / 16)
+            hex_format[i * 8 + j * 2 + 0] = itoa16[test mod 16]
+            n = cast[uint32](toInt(cast[int](n-(n mod 256)) / 256))
+            j+=1
+    return hex_format.join("")
+
 proc SendAndReceiveFromSocket*(socket:net.Socket,sentBytes:ptr seq[byte],sendFlag:bool = true):(seq[byte],uint32) =
     var returnBytes:seq[byte] = newSeq[byte](5096)
     var tempBytes:seq[byte] = newSeq[byte](5096)

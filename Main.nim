@@ -7,8 +7,6 @@ import OptionsHelper
 import Structs
 import Packets
 
-
-
 proc SelectRandomService(socket: net.Socket, messageID:ptr uint64, treeID: ptr array[4,byte], sessionID: ptr array[8,byte], fileID: ptr array[16,byte], callID:ptr int, scManagerHandle: ptr array[20,byte], serviceList: ptr seq[ServiceInfo], selectedServiceInfo: ptr ServiceInfo,smbSigning:bool, hmacSha256Key: ptr byte):string =
     var lengthOfServiceList = serviceList[].len
     var scServiceHandle:array[20,byte]
@@ -109,7 +107,7 @@ proc StartNimExec():void =
         echo "[!] Problem in RPC Bind Request!"
         quit(0)
     if(optionsStruct.IsVerbose):
-        echo "[+] Bound to the RPC Interface!"
+        echo "[+] Binded to the RPC Interface!"
     if(not ReadRequest(tcpSocket, addr messageID, addr treeID, addr sessionID, addr fileID, smbSigning,addr hmacSha256Key[0])):
         echo "[!] Problem in RPC Bind Acknowledge!"
         quit(0)
