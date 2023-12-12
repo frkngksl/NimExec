@@ -69,7 +69,8 @@ It's tested against Windows 10&11, Windows Server 16&19&22 from Ubuntu 20.04 and
 ``` 
     -v | --verbose                          Enable more verbose output.
     -u | --username <Username>              Username for NTLM Authentication.*
-    -h | --hash <NTLM Hash>                 NTLM password hash for NTLM Authentication.*
+    -h | --hash <NTLM Hash>                 NTLM password hash for NTLM Authentication.**
+    -p | --password <Password>              Plaintext password.**
     -t | --target <Target>                  Lateral movement target.*
     -c | --command <Command>                Command to execute.*
     -d | --domain <Domain>                  Domain name for NTLM Authentication.
